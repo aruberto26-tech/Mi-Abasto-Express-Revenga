@@ -1956,8 +1956,9 @@ const handleVerifySecondaryPin = (e) => {
             />
           </div>
 
-          {pinError && (
-            <p className="text-xs text-red-600 font-semibold text-center">{pinError}</p>
+          {authError && (
+         <p className="text-xs text-red-600 font-semibold text-center">{authError}</p>
+          )}
           
           <button
             type="submit"
