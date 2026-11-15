@@ -23,15 +23,33 @@
 
     <script type="text/babel" data-type="module">
         // For Firebase JS SDK v7.20.0 and later, measurementId is optional
-const firebaseConfig = {
-  apiKey: "AIzaSyDDFPbQs-EqkxFBSDHb0luljkLiU0pw34U",
-  authDomain: "mi-abasto-express.firebaseapp.com",
-  projectId: "mi-abasto-express",
-  storageBucket: "mi-abasto-express.firebasestorage.app",
-  messagingSenderId: "312591917828",
-  appId: "1:312591917828:web:69124367a59f718f88a651",
-  measurementId: "G-MLC4ZSF088"
-};
+import React, { useState, useMemo, useRef, useEffect } from 'react';
+        import { createRoot } from 'react-dom/client';
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import {
+          ShoppingBag, ShoppingCart, Plus, Minus, Trash2, Search, CheckCircle2,
+          DollarSign, Truck, MessageCircle, Lock, Store, Tag, User, Camera,
+          LogOut, Check, Package, Wallet, BarChart3, Settings, Edit3,
+          ArrowUpRight, ArrowDownRight, Copy, Receipt, RefreshCw, Eye,
+          EyeOff, Palette, Image as ImageIcon, Headphones, FolderPlus,
+          ShieldCheck, Info, CreditCard, X
+        } from 'https://esm.sh/lucide-react@0.294.0';
+
+        const firebaseConfig = {
+          apiKey: "AIzaSyDDFPbQs-EqkxFBSDHb0luljkLiU0pw34U",
+          authDomain: "mi-abasto-express.firebaseapp.com",
+          projectId: "mi-abasto-express",
+          storageBucket: "mi-abasto-express.appspot.com",
+          messagingSenderId: "312591917828",
+          appId: "1:312591917828:web:69124367a59f718f88a651",
+          measurementId: "G-MLC4ZSF088"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const auth = getAuth(app);
         import React, { useState, useMemo, useRef } from 'react';
         import { createRoot } from 'react-dom/client';
         import {
