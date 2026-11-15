@@ -437,18 +437,60 @@ import React, { useState, useMemo, useRef, useEffect } from 'react';
 
           return [storedValue, setValue];
         }
+        // CONEXIÓN CLOUD FIREBASE EN TIEMPO REAL
+        const [cloudData, setCloudData] = useState(null);
+        const [isCloudLoaded, setIsCloudLoaded] = useState(false);
+
+        useEffect(() => {
+          signInAnonymously(auth).catch(() => {});
+          const docRef = doc(db, "abasto_data", "main_store");
+          const unsubscribe = onSnapshot(docRef, (docSnap) => {
+            if (docSnap.exists()) {
+              setCloudData(docSnap.data());
+            } else {
+              const initial = {
+                settings: INITIAL_SETTINGS,
+                departments: INITIAL_DEPARTMENTS,
+                products: INITIAL_PRODUCTS,
+                customers: INITIAL_CUSTOMERS,
+                sales: INITIAL_SALES,
+                cashMovements: INITIAL_CASH_MOVEMENTS
+              };
+              setDoc(docRef, initial);
+              setCloudData(initial);
+            }
+            setIsCloudLoaded(true);
+          });
+          return () => unsubscribe();
+        }, []);
 
         // ============================================================================
         // COMPONENTE PRINCIPAL: APP
         // ============================================================================
         function App() {
-          const [settings, setSettings] = useLocalStorage('abasto_settings_v2', INITIAL_SETTINGS);
-          const [departments, setDepartments] = useLocalStorage('abasto_departments_v2', INITIAL_DEPARTMENTS);
-          const [products, setProducts] = useLocalStorage('abasto_products_v2', INITIAL_PRODUCTS);
-          const [customers, setCustomers] = useLocalStorage('abasto_customers_v2', INITIAL_CUSTOMERS);
-          const [sales, setSales] = useLocalStorage('abasto_sales_v2', INITIAL_SALES);
-          const [cashMovements, setCashMovements] = useLocalStorage('abasto_cash_v2', INITIAL_CASH_MOVEMENTS);
-          const [currentUserCi, setCurrentUserCi] = useLocalStorage('abasto_current_user_ci_v2', null);
+            
+const [cloudData, setCloudData] = useState(null);
+          const [isCloudLoaded, setIsCloudLoaded] = useState(false);
+
+          const settings = cloudData?.settings || INITIAL_SETTINGS;
+          const setSettings = (newVal) => updateCloud({ settings: typeof newVal === 'function' ? newVal(settings) : newVal });
+
+          const departments = cloudData?.departments || INITIAL_DEPARTMENTS;
+          const setDepartments = (newVal) => updateCloud({ departments: typeof newVal === 'function' ? newVal(departments) : newVal });
+
+          const products = cloudData?.products || INITIAL_PRODUCTS;
+          const setProducts = (newVal) => updateCloud({ products: typeof newVal === 'function' ? newVal(products) : newVal });
+
+          const customers = cloudData?.customers || INITIAL_CUSTOMERS;
+          const setCustomers = (newVal) => updateCloud({ customers: typeof newVal === 'function' ? newVal(customers) : newVal });
+
+          const sales = cloudData?.sales || INITIAL_SALES;
+          const setSales = (newVal) => updateCloud({ sales: typeof newVal === 'function' ? newVal(sales) : newVal });
+
+          const cashMovements = cloudData?.cashMovements || INITIAL_CASH_MOVEMENTS;
+          const setCashMovements = (newVal) => updateCloud({ cashMovements: typeof newVal === 'function' ? newVal(cashMovements) : newVal });
+
+          const [currentUserCi, setCurrentUserCi] = useState(null);
 
           const [appMode, setAppMode] = useState('STORE');
           const [isAdminUnlocked, setIsAdminUnlocked] = useState(false);
