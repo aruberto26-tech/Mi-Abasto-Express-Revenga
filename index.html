@@ -17,12 +17,36 @@
       }
     }
     </script>
+    <!-- Firebase SDKs -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getFirestore, doc, getDoc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+
+        const firebaseConfig = {
+          apiKey: "AIzaSyDDFPbQs-EqkxFBSDHb0luljkLiU0pw34U",
+          authDomain: "mi-abasto-express.firebaseapp.com",
+          projectId: "mi-abasto-express",
+          storageBucket: "mi-abasto-express.firebasestorage.app",
+          messagingSenderId: "312591917828",
+          appId: "1:312591917828:web:69124367a59f718f88a651",
+          measurementId: "G-MLC4ZSF088"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const auth = getAuth(app);
+
+        window.firebaseDb = db;
+        window.firebaseAuth = auth;
+        window.firebaseFirestoreFns = { doc, getDoc, setDoc, onSnapshot, signInAnonymously };
+    </script>
 </head>
 <body class="bg-slate-50 text-slate-800 font-sans">
     <div id="root"></div>
 
     <script type="text/babel" data-type="module">
-        import React, { useState, useMemo, useRef } from 'react';
+        import React, { useState, useEffect, useMemo, useRef } from 'react';
         import { createRoot } from 'react-dom/client';
         import {
           ShoppingBag,
@@ -63,6 +87,10 @@
           CreditCard,
           X
         } from 'lucide-react';
+
+        const { doc, getDoc, setDoc, onSnapshot, signInAnonymously } = window.firebaseFirestoreFns;
+        const db = window.firebaseDb;
+        const auth = window.firebaseAuth;
 
         // ============================================================================
         // DATOS INICIALES DE DEMOSTRACIÓN (ABASTO VENEZOLANO)
@@ -386,41 +414,50 @@
           });
         }
 
-        function useLocalStorage(key, initialValue) {
-          const [storedValue, setStoredValue] = useState(() => {
-            try {
-              const item = window.localStorage.getItem(key);
-              return item ? JSON.parse(item) : initialValue;
-            } catch (error) {
-              console.error(`Error leyendo localStorage (${key}):`, error);
-              return initialValue;
-            }
-          });
-
-          const setValue = (value) => {
-            try {
-              const valueToStore = value instanceof Function ? value(storedValue) : value;
-              setStoredValue(valueToStore);
-              window.localStorage.setItem(key, JSON.stringify(valueToStore));
-            } catch (error) {
-              console.error(`Error guardando localStorage (${key}):`, error);
-            }
-          };
-
-          return [storedValue, setValue];
-        }
-
         // ============================================================================
-        // COMPONENTE PRINCIPAL: APP
+        // COMPONENTE PRINCIPAL: APP CON FIREBASE EN TIEMPO REAL
         // ============================================================================
         function App() {
-          const [settings, setSettings] = useLocalStorage('abasto_settings_v2', INITIAL_SETTINGS);
-          const [departments, setDepartments] = useLocalStorage('abasto_departments_v2', INITIAL_DEPARTMENTS);
-          const [products, setProducts] = useLocalStorage('abasto_products_v2', INITIAL_PRODUCTS);
-          const [customers, setCustomers] = useLocalStorage('abasto_customers_v2', INITIAL_CUSTOMERS);
-          const [sales, setSales] = useLocalStorage('abasto_sales_v2', INITIAL_SALES);
-          const [cashMovements, setCashMovements] = useLocalStorage('abasto_cash_v2', INITIAL_CASH_MOVEMENTS);
-          const [currentUserCi, setCurrentUserCi] = useLocalStorage('abasto_current_user_ci_v2', null);
+          const [cloudData, setCloudData] = useState(null);
+          const [isCloudLoaded, setIsCloudLoaded] = useState(false);
+
+          const settings = cloudData?.settings || INITIAL_SETTINGS;
+          const setSettings = (newVal) => {
+            const val = typeof newVal === 'function' ? newVal(settings) : newVal;
+            updateCloud({ settings: val });
+          };
+
+          const departments = cloudData?.departments || INITIAL_DEPARTMENTS;
+          const setDepartments = (newVal) => {
+            const val = typeof newVal === 'function' ? newVal(departments) : newVal;
+            updateCloud({ departments: val });
+          };
+
+          const products = cloudData?.products || INITIAL_PRODUCTS;
+          const setProducts = (newVal) => {
+            const val = typeof newVal === 'function' ? newVal(products) : newVal;
+            updateCloud({ products: val });
+          };
+
+          const customers = cloudData?.customers || INITIAL_CUSTOMERS;
+          const setCustomers = (newVal) => {
+            const val = typeof newVal === 'function' ? newVal(customers) : newVal;
+            updateCloud({ customers: val });
+          };
+
+          const sales = cloudData?.sales || INITIAL_SALES;
+          const setSales = (newVal) => {
+            const val = typeof newVal === 'function' ? newVal(sales) : newVal;
+            updateCloud({ sales: val });
+          };
+
+          const cashMovements = cloudData?.cashMovements || INITIAL_CASH_MOVEMENTS;
+          const setCashMovements = (newVal) => {
+            const val = typeof newVal === 'function' ? newVal(cashMovements) : newVal;
+            updateCloud({ cashMovements: val });
+          };
+
+          const [currentUserCi, setCurrentUserCi] = useState(null);
 
           const [appMode, setAppMode] = useState('STORE');
           const [isAdminUnlocked, setIsAdminUnlocked] = useState(false);
@@ -431,7 +468,7 @@
 
           const [selectedDepartment, setSelectedDepartment] = useState('Todos');
           const [searchQuery, setSearchQuery] = useState('');
-          const [cart, setCart] = useLocalStorage('abasto_cart_v2', []);
+          const [cart, setCart] = useState([]);
           const [onlinePaymentMethod, setOnlinePaymentMethod] = useState('Pago Móvil Bs.');
           const [isCartOpen, setIsCartOpen] = useState(false);
           const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
@@ -448,6 +485,48 @@
           const showToast = (message, type = 'success') => {
             setToast({ message, type });
             setTimeout(() => setToast(null), 3500);
+          };
+
+          useEffect(() => {
+            signInAnonymously(auth).catch((err) => console.error("Error auth anónimo:", err));
+            const docRef = doc(db, "abasto_data", "main_store");
+            const unsubscribe = onSnapshot(docRef, (docSnap) => {
+              if (docSnap.exists()) {
+                setCloudData(docSnap.data());
+              } else {
+                const initial = {
+                  settings: INITIAL_SETTINGS,
+                  departments: INITIAL_DEPARTMENTS,
+                  products: INITIAL_PRODUCTS,
+                  customers: INITIAL_CUSTOMERS,
+                  sales: INITIAL_SALES,
+                  cashMovements: INITIAL_CASH_MOVEMENTS,
+                };
+                setDoc(docRef, initial);
+                setCloudData(initial);
+              }
+              setIsCloudLoaded(true);
+            }, (error) => {
+              console.error("Error en Firestore snapshot:", error);
+              setIsCloudLoaded(true);
+            });
+
+            return () => unsubscribe();
+          }, []);
+
+          const updateCloud = (updatedFields) => {
+            const newData = {
+              settings,
+              departments,
+              products,
+              customers,
+              sales,
+              cashMovements,
+              ...updatedFields,
+            };
+            setCloudData(newData);
+            const docRef = doc(db, "abasto_data", "main_store");
+            setDoc(docRef, newData).catch((err) => console.error("Error guardando en nube:", err));
           };
 
           const currentUser = useMemo(
@@ -598,16 +677,14 @@
               totalBs: cartSummary.totalBs,
             };
 
-            setProducts((prevProducts) =>
-              prevProducts.map((p) => {
-                const bought = enrichedCart.find((i) => i.productId === p.id);
-                if (!bought) return p;
-                return { ...p, stock: Math.max(0, p.stock - bought.qty) };
-              })
-            );
+            const updatedProducts = products.map((p) => {
+              const bought = enrichedCart.find((i) => i.productId === p.id);
+              if (!bought) return p;
+              return { ...p, stock: Math.max(0, p.stock - bought.qty) };
+            });
 
-            setSales((prev) => [newSale, ...prev]);
-            setCashMovements((prev) => [
+            const updatedSales = [newSale, ...sales];
+            const updatedMovements = [
               {
                 id: `MOV-${Date.now()}`,
                 date: new Date().toISOString(),
@@ -617,8 +694,14 @@
                 amountUsd: newSale.totalUsd,
                 currencyUsed: onlinePaymentMethod.includes('Bs') ? 'BS' : 'USD',
               },
-              ...prev,
-            ]);
+              ...cashMovements,
+            ];
+
+            updateCloud({
+              products: updatedProducts,
+              sales: updatedSales,
+              cashMovements: updatedMovements,
+            });
 
             const itemsText = enrichedCart
               .map(
@@ -655,7 +738,7 @@
             setCart([]);
             setIsCartOpen(false);
             setWhatsappConfirmModal({ sale: newSale, message: waMessage, url: waUrl });
-            showToast('¡Pedido registrado con éxito! Listo para enviar a WhatsApp');
+            showToast('¡Pedido registrado y sincronizado en la nube!');
           };
 
           const handleAdminButtonClick = () => {
@@ -711,6 +794,17 @@
             () => products.filter((p) => p.stock <= 10).length,
             [products]
           );
+
+          if (!isCloudLoaded) {
+            return (
+              <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+                <div className="text-center space-y-3">
+                  <div className="w-12 h-12 border-4 border-emerald-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
+                  <p className="font-extrabold text-slate-700">Conectando con tu Base de Datos en Firebase...</p>
+                </div>
+              </div>
+            );
+          }
 
           return (
             <div className="min-h-screen bg-slate-50 text-slate-800 font-sans flex flex-col">
@@ -1255,6 +1349,7 @@
                   setSales={setSales}
                   cashMovements={cashMovements}
                   setCashMovements={setCashMovements}
+                  updateCloud={updateCloud}
                   showToast={showToast}
                 />
               )}
@@ -2342,6 +2437,7 @@
           setSales,
           cashMovements,
           setCashMovements,
+          updateCloud,
           showToast,
         }) {
           const [adminTab, setAdminTab] = useState('POS');
@@ -2379,10 +2475,10 @@
                 <PosCashRegisterTab
                   settings={settings}
                   products={products}
-                  setProducts={setProducts}
                   customers={customers}
-                  setSales={setSales}
-                  setCashMovements={setCashMovements}
+                  sales={sales}
+                  cashMovements={cashMovements}
+                  updateCloud={updateCloud}
                   showToast={showToast}
                 />
               )}
@@ -2394,6 +2490,7 @@
                   setDepartments={setDepartments}
                   products={products}
                   setProducts={setProducts}
+                  updateCloud={updateCloud}
                   showToast={showToast}
                 />
               )}
@@ -2429,10 +2526,10 @@
         function PosCashRegisterTab({
           settings,
           products,
-          setProducts,
           customers,
-          setSales,
-          setCashMovements,
+          sales,
+          cashMovements,
+          updateCloud,
           showToast,
         }) {
           const [posSearch, setPosSearch] = useState('');
@@ -2526,15 +2623,13 @@
               totalBs: posTotalBs,
             };
 
-            setProducts((prev) =>
-              prev.map((p) => {
-                const sold = enrichedPosCart.find((i) => i.productId === p.id);
-                return sold ? { ...p, stock: Math.max(0, p.stock - sold.qty) } : p;
-              })
-            );
+            const updatedProducts = products.map((p) => {
+              const sold = enrichedPosCart.find((i) => i.productId === p.id);
+              return sold ? { ...p, stock: Math.max(0, p.stock - sold.qty) } : p;
+            });
 
-            setSales((prev) => [newSale, ...prev]);
-            setCashMovements((prev) => [
+            const updatedSales = [newSale, ...sales];
+            const updatedMovements = [
               {
                 id: `MOV-${Date.now()}`,
                 date: new Date().toISOString(),
@@ -2544,8 +2639,14 @@
                 amountUsd: posTotalUsd,
                 currencyUsed: paymentMethod.includes('Bs') ? 'BS' : 'USD',
               },
-              ...prev,
-            ]);
+              ...cashMovements,
+            ];
+
+            updateCloud({
+              products: updatedProducts,
+              sales: updatedSales,
+              cashMovements: updatedMovements,
+            });
 
             setPosCart([]);
             showToast(`Venta ${newSale.id} cobrada (${formatUsd(posTotalUsd)}) e inventario descontado`);
@@ -2744,6 +2845,7 @@
           setDepartments,
           products,
           setProducts,
+          updateCloud,
           showToast,
         }) {
           const [editingProduct, setEditingProduct] = useState(null);
@@ -2764,10 +2866,11 @@
               showToast('Ese departamento ya existe', 'warning');
               return;
             }
-            setDepartments((prev) => [
-              ...prev,
+            const updatedDepts = [
+              ...departments,
               { id: `dept-${Date.now()}`, name: trimmed, emoji: newDeptEmoji || '📦' },
-            ]);
+            ];
+            setDepartments(updatedDepts);
             setNewDeptName('');
             setNewDeptEmoji('📦');
             showToast(`Departamento "${trimmed}" agregado`);
@@ -2779,10 +2882,9 @@
               return;
             }
             const fallbackDept = departments.find((d) => d.id !== dept.id)?.name || 'General';
-            setProducts((prev) =>
-              prev.map((p) => (p.department === dept.name ? { ...p, department: fallbackDept } : p))
-            );
-            setDepartments((prev) => prev.filter((d) => d.id !== dept.id));
+            const updatedProducts = products.map((p) => (p.department === dept.name ? { ...p, department: fallbackDept } : p));
+            const updatedDepts = departments.filter((d) => d.id !== dept.id);
+            updateCloud({ products: updatedProducts, departments: updatedDepts });
             showToast(`Departamento "${dept.name}" eliminado`);
           };
 
@@ -2835,22 +2937,19 @@
               unit: editingProduct.unit || 'Unidad',
             };
 
-            setProducts((prev) => {
-              const exists = prev.some((p) => p.id === cleanProduct.id);
-              if (exists) {
-                return prev.map((p) => (p.id === cleanProduct.id ? cleanProduct : p));
-              }
-              return [cleanProduct, ...prev];
-            });
+            const exists = products.some((p) => p.id === cleanProduct.id);
+            const updatedProducts = exists
+              ? products.map((p) => (p.id === cleanProduct.id ? cleanProduct : p))
+              : [cleanProduct, ...products];
 
+            setProducts(updatedProducts);
             setEditingProduct(null);
-            showToast('Producto guardado y actualizado en tiempo real');
+            showToast('Producto guardado y sincronizado en la nube');
           };
 
           const toggleOfferQuick = (id) => {
-            setProducts((prev) =>
-              prev.map((p) => (p.id === id ? { ...p, isOffer: !p.isOffer } : p))
-            );
+            const updatedProducts = products.map((p) => (p.id === id ? { ...p, isOffer: !p.isOffer } : p));
+            setProducts(updatedProducts);
           };
 
           return (
@@ -3318,12 +3417,13 @@
               currencyUsed: currencyInput,
             };
 
-            setCashMovements((prev) => [newMov, ...prev]);
+            const updatedMovs = [newMov, ...cashMovements];
+            setCashMovements(updatedMovs);
             setAmountInput('');
             setDescription('');
             showToast(
               movType === 'IN'
-                ? 'Entrada de caja registrada'
+                ? 'Entrada de caja registrada y sincronizada'
                 : 'Salida / gasto de caja registrado'
             );
           };
@@ -3830,7 +3930,7 @@
               deliveryFee: Math.max(0, Number(form.deliveryFee)),
               adminPin: form.adminPin.trim(),
             });
-            showToast('Marca, colores, tasa y configuración guardados en toda la tienda');
+            showToast('Marca, colores, tasa y configuración guardados en la nube');
           };
 
           return (
