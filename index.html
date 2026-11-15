@@ -870,37 +870,17 @@
             }
           };
 
-const handleAdminLogin = async (e) => {
-  e.preventDefault();
-  setPinError("");
-  const auth = window.firebaseAuth || firebase.auth();
-  
-  try {
-    // Paso 1: Valida correo y contraseña en Firebase
-    await auth.signInWithEmailAndPassword(emailInput, passwordInput);
-    
-    // Si Firebase es correcto, pasamos al segundo paso del PIN secreto
-    setIsSecondaryStep(true);
-  } catch (error) {
-    setPinError("Correo o contraseña incorrectos. Inténtalo de nuevo.");
-  }
-};
-
-const handleVerifySecondaryPin = (e) => {
-  e.preventDefault();
-  // Cambia '2626' por tu número PIN secreto personal
-  if (secondaryPinInput === '2626') {
-    setIsAdminUnlocked(true);
-    setShowPinModal(false);
-    setIsSecondaryStep(false);
-    setAppMode('ADMIN');
-    showToast('¡Bienvenido al Panel Administrativo y POS!');
-    setSecondaryPinInput('');
-  } else {
-    setPinError("PIN de seguridad secundario incorrecto.");
-    setSecondaryPinInput('');
-  }
-};
+          const handleVerifyPin = (e) => {
+            e.preventDefault();
+            if (pinInput === settings.adminPin) {
+              setIsAdminUnlocked(true);
+              setShowPinModal(false);
+              setAppMode('ADMIN');
+              showToast('Bienvenido al Panel Administrativo y POS');
+            } else {
+              setPinError('Contraseña / PIN incorrecto. Intenta nuevamente.');
+            }
+          };
 
           const storeDepartmentList = useMemo(() => {
             return [
@@ -1905,66 +1885,51 @@ const handleVerifySecondaryPin = (e) => {
                       </button>
                     </div>
 
-{showPinModal && (
-  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/65 backdrop-blur-sm p-4 animate-fadeIn">
-    <div className="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-slate-100 space-y-4">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2.5">
-          <div className="w-10 h-10 rounded-xl bg-slate-900 flex items-center justify-center text-white shadow-md">
-            <ShieldCheck className="w-5 h-5" />
-          </div>
-          <div>
-            <h3 className="font-extrabold text-slate-900 text-base">Acceso Restringido</h3>
-            <p className="text-xs text-slate-500">Panel de Administración</p>
-          </div>
-        </div>
-        <button
-          onClick={() => setShowPinModal(false)}
-          className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 hover:bg-slate-200 transition-colors"
-        >
-          ✕
-        </button>
-      </div>
-
-      <form onSubmit={handleVerifyPin} className="space-y-3">
-        <div>
-          <label className="block text-xs font-bold text-slate-700 mb-1">
-            Ingresa la Clave de Acceso
-          </label>
-          <div className="relative">
-            <input
-              type={showPinText ? "text" : "password"}
-              value={adminPin}
-              onChange={(e) => setAdminPin(e.target.value)}
-              placeholder="Contraseña o PIN..."
-              autoFocus
-              required
-              className="w-full px-3 py-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-slate-900 outline-none"
-            />
-            <button
-              type="button"
-              onClick={() => setShowPinText(!showPinText)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-            >
-              {showPinText ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-            </button>
-          </div>
-        </div>
-
-        {pinError && (
-          <p className="text-xs text-red-600 font-semibold text-center">{pinError}</p>
-        )}
-
-        <button
-          type="submit"
-          className="w-full py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-lg text-sm transition-all shadow-md"
-        >
-          Desbloquear Panel
-        </button>
-      </form>
-    </div>
-  </div>
-)}
+                    <form onSubmit={handleVerifyPin} className="space-y-3">
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 mb-1">
+                          Ingresa tu PIN o Contraseña de Administrador
+                        </label>
+                        <div className="relative">
+                          <input
+                            type={showPinText ? 'text' : 'password'}
+                            maxLength={32}
+                            value={pinInput}
+                            onChange={(e) => setPinInput(e.target.value)}
+                            placeholder="Contraseña segura..."
+                            autoFocus
+                            className="w-full pl-4 pr-11 py-2.5 border border-slate-300 rounded-xl text-base font-bold tracking-wide focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowPinText(!showPinText)}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 cursor-pointer"
+                            title={showPinText ? 'Ocultar' : 'Mostrar'}
+                          >
+                            {showPinText ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                          </button>
+                        </div>
+                        <p className="text-[11px] text-slate-400 mt-1.5 text-center">
+                          PIN inicial por defecto:{' '}
+                          <strong className="text-slate-600">{settings.adminPin}</strong>
+                        </p>
+                      </div>
+                      {pinError && (
+                        <p className="text-xs text-red-600 font-semibold text-center">{pinError}</p>
+                      )}
+                      <button
+                        type="submit"
+                        className="w-full py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl text-sm transition cursor-pointer"
+                      >
+                        Desbloquear Panel Admin
+                      </button>
+                    </form>
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        }
 
         function CustomerSupportModal({
           onClose,
