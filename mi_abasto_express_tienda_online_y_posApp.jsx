@@ -1,0 +1,4076 @@
+import React, { useState, useMemo, useRef } from 'react';
+import {
+  ShoppingBag,
+  ShoppingCart,
+  Plus,
+  Minus,
+  Trash2,
+  Search,
+  CheckCircle2,
+  DollarSign,
+  Truck,
+  MessageCircle,
+  Lock,
+  Store,
+  Tag,
+  User,
+  Camera,
+  LogOut,
+  Check,
+  Package,
+  Wallet,
+  BarChart3,
+  Settings,
+  Edit3,
+  ArrowUpRight,
+  ArrowDownRight,
+  Copy,
+  Receipt,
+  RefreshCw,
+  Eye,
+  EyeOff,
+  Palette,
+  Image as ImageIcon,
+  Headphones,
+  FolderPlus,
+  ShieldCheck,
+  Info,
+  CreditCard
+} from 'lucide-react';
+
+// ============================================================================
+// DATOS INICIALES DE DEMOSTRACIÓN (ABASTO VENEZOLANO)
+// ============================================================================
+const INITIAL_SETTINGS = {
+  storeName: 'Mi Abasto Express',
+  storeSlogan: 'Tu mercado rápido y fresco',
+  storeLogo: null, // DataURL base64 comprimido
+  primaryColor: '#059669', // Esmeralda por defecto
+  accentColor: '#f59e0b',  // Ámbar por defecto
+  headerColor: '#064e3b',  // Verde oscuro cinta superior
+  exchangeRate: 46.50, // Bs. por 1 USD
+  whatsappNumber: '584121234567',
+  freeDeliveryThreshold: 10.00, // Gratis a partir de $10
+  deliveryFee: 1.50, // Costo si es menor a $10
+  adminPin: 'admin2026', // PIN largo y seguro por defecto
+};
+
+const INITIAL_DEPARTMENTS = [
+  { id: 'dept-1', name: 'Víveres', emoji: '🛒' },
+  { id: 'dept-2', name: 'Charcutería y Lácteos', emoji: '🧀' },
+  { id: 'dept-3', name: 'Carnes y Pollo', emoji: '🍗' },
+  { id: 'dept-4', name: 'Frutas y Verduras', emoji: '🥦' },
+  { id: 'dept-5', name: 'Bebidas', emoji: '🥤' },
+  { id: 'dept-6', name: 'Limpieza', emoji: '🫧' },
+];
+
+const INITIAL_PRODUCTS = [
+  {
+    id: 'prod-1',
+    name: 'Harina de Maíz Precocida P.A.N. (1 Kg)',
+    department: 'Víveres',
+    emoji: '🌽',
+    image: null,
+    costPrice: 0.95,
+    retailPrice: 1.25,
+    wholesalePrice: 1.10,
+    wholesaleMinQty: 5,
+    stock: 85,
+    isOffer: true,
+    unit: 'Paquete 1Kg',
+  },
+  {
+    id: 'prod-2',
+    name: 'Arroz Blanco Tipo I (1 Kg)',
+    department: 'Víveres',
+    emoji: '🍚',
+    image: null,
+    costPrice: 0.90,
+    retailPrice: 1.20,
+    wholesalePrice: 1.05,
+    wholesaleMinQty: 6,
+    stock: 60,
+    isOffer: false,
+    unit: 'Paquete 1Kg',
+  },
+  {
+    id: 'prod-3',
+    name: 'Aceite Vegetal Comestible (1 Litro)',
+    department: 'Víveres',
+    emoji: '🌻',
+    image: null,
+    costPrice: 1.85,
+    retailPrice: 2.40,
+    wholesalePrice: 2.15,
+    wholesaleMinQty: 4,
+    stock: 42,
+    isOffer: true,
+    unit: 'Botella 1L',
+  },
+  {
+    id: 'prod-4',
+    name: 'Queso Blanco Llanero Duro (Por Kg)',
+    department: 'Charcutería y Lácteos',
+    emoji: '🧀',
+    image: null,
+    costPrice: 3.60,
+    retailPrice: 4.80,
+    wholesalePrice: 4.20,
+    wholesaleMinQty: 3,
+    stock: 25,
+    isOffer: true,
+    unit: 'Kilogramo',
+  },
+  {
+    id: 'prod-5',
+    name: 'Pollo Entero Beneficiado Fresco (Por Kg)',
+    department: 'Carnes y Pollo',
+    emoji: '🍗',
+    image: null,
+    costPrice: 2.30,
+    retailPrice: 3.10,
+    wholesalePrice: 2.75,
+    wholesaleMinQty: 4,
+    stock: 30,
+    isOffer: false,
+    unit: 'Kilogramo',
+  },
+  {
+    id: 'prod-6',
+    name: 'Café Molido Tradicional (500g)',
+    department: 'Víveres',
+    emoji: '☕',
+    image: null,
+    costPrice: 2.90,
+    retailPrice: 3.80,
+    wholesalePrice: 3.40,
+    wholesaleMinQty: 3,
+    stock: 35,
+    isOffer: false,
+    unit: 'Paquete 500g',
+  },
+  {
+    id: 'prod-7',
+    name: 'Azúcar Refinada Blanca (1 Kg)',
+    department: 'Víveres',
+    emoji: '🍬',
+    image: null,
+    costPrice: 1.05,
+    retailPrice: 1.35,
+    wholesalePrice: 1.20,
+    wholesaleMinQty: 5,
+    stock: 70,
+    isOffer: false,
+    unit: 'Paquete 1Kg',
+  },
+  {
+    id: 'prod-8',
+    name: 'Cartón de Huevos (30 Unidades)',
+    department: 'Charcutería y Lácteos',
+    emoji: '🥚',
+    image: null,
+    costPrice: 3.50,
+    retailPrice: 4.50,
+    wholesalePrice: 4.00,
+    wholesaleMinQty: 2,
+    stock: 18,
+    isOffer: true,
+    unit: 'Cartón 30u',
+  },
+  {
+    id: 'prod-9',
+    name: 'Plátano Maduro Seleccionado (Por Kg)',
+    department: 'Frutas y Verduras',
+    emoji: '🍌',
+    image: null,
+    costPrice: 0.65,
+    retailPrice: 1.00,
+    wholesalePrice: 0.85,
+    wholesaleMinQty: 5,
+    stock: 40,
+    isOffer: false,
+    unit: 'Kilogramo',
+  },
+  {
+    id: 'prod-10',
+    name: 'Tomate Perita Fresco (Por Kg)',
+    department: 'Frutas y Verduras',
+    emoji: '🍅',
+    image: null,
+    costPrice: 0.80,
+    retailPrice: 1.25,
+    wholesalePrice: 1.05,
+    wholesaleMinQty: 4,
+    stock: 22,
+    isOffer: false,
+    unit: 'Kilogramo',
+  },
+  {
+    id: 'prod-11',
+    name: 'Refresco Cola 2 Litros',
+    department: 'Bebidas',
+    emoji: '🥤',
+    image: null,
+    costPrice: 1.30,
+    retailPrice: 1.75,
+    wholesalePrice: 1.50,
+    wholesaleMinQty: 6,
+    stock: 48,
+    isOffer: true,
+    unit: 'Botella 2L',
+  },
+  {
+    id: 'prod-12',
+    name: 'Detergente en Polvo Multiusos (1 Kg)',
+    department: 'Limpieza',
+    emoji: '🫧',
+    image: null,
+    costPrice: 1.70,
+    retailPrice: 2.30,
+    wholesalePrice: 2.00,
+    wholesaleMinQty: 4,
+    stock: 8,
+    isOffer: false,
+    unit: 'Bolsa 1Kg',
+  },
+];
+
+const INITIAL_CUSTOMERS = [
+  {
+    ci: 'V-18456789',
+    firstName: 'María',
+    lastName: 'Rodríguez',
+    phone: '0414-5551234',
+    address: 'Av. Bolívar, Edif. Los Pinos, Apto 3-B, Centro',
+    photo: null,
+    createdAt: new Date(Date.now() - 86400000 * 12).toISOString(),
+  },
+  {
+    ci: 'V-22987654',
+    firstName: 'Carlos',
+    lastName: 'Mendoza',
+    phone: '0424-9876543',
+    address: 'Urbanización Las Acacias, Calle 4, Casa #18',
+    photo: null,
+    createdAt: new Date(Date.now() - 86400000 * 5).toISOString(),
+  },
+];
+
+const INITIAL_SALES = [
+  {
+    id: 'VTA-1001',
+    date: new Date(Date.now() - 3600000 * 3).toISOString(),
+    channel: 'ONLINE',
+    customerCi: 'V-18456789',
+    customerName: 'María Rodríguez',
+    customerPhone: '0414-5551234',
+    customerAddress: 'Av. Bolívar, Edif. Los Pinos, Apto 3-B, Centro',
+    paymentMethod: 'WhatsApp / Pago Móvil',
+    items: [
+      { productId: 'prod-1', name: 'Harina de Maíz Precocida P.A.N. (1 Kg)', qty: 5, unitPrice: 1.10, costPrice: 0.95, isWholesale: true },
+      { productId: 'prod-4', name: 'Queso Blanco Llanero Duro (Por Kg)', qty: 2, unitPrice: 4.80, costPrice: 3.60, isWholesale: false },
+    ],
+    subtotalUsd: 15.10,
+    deliveryUsd: 0,
+    totalUsd: 15.10,
+    totalCostUsd: 11.95,
+    exchangeRate: 46.50,
+    totalBs: 15.10 * 46.50,
+  },
+  {
+    id: 'VTA-1002',
+    date: new Date(Date.now() - 86400000 * 2).toISOString(),
+    channel: 'POS',
+    customerCi: 'V-22987654',
+    customerName: 'Carlos Mendoza',
+    customerPhone: '0424-9876543',
+    customerAddress: 'Tienda Física',
+    paymentMethod: 'Punto de Venta Bs.',
+    items: [
+      { productId: 'prod-5', name: 'Pollo Entero Beneficiado Fresco (Por Kg)', qty: 4, unitPrice: 2.75, costPrice: 2.30, isWholesale: true },
+      { productId: 'prod-8', name: 'Cartón de Huevos (30 Unidades)', qty: 1, unitPrice: 4.50, costPrice: 3.50, isWholesale: false },
+    ],
+    subtotalUsd: 15.50,
+    deliveryUsd: 0,
+    totalUsd: 15.50,
+    totalCostUsd: 12.70,
+    exchangeRate: 46.50,
+    totalBs: 15.50 * 46.50,
+  },
+];
+
+const INITIAL_CASH_MOVEMENTS = [
+  {
+    id: 'MOV-01',
+    date: new Date(Date.now() - 3600000 * 5).toISOString(),
+    type: 'IN',
+    category: 'Fondo Inicial de Caja',
+    description: 'Apertura de caja del día',
+    amountUsd: 50.00,
+    currencyUsed: 'USD',
+  },
+  {
+    id: 'MOV-02',
+    date: new Date(Date.now() - 3600000 * 2).toISOString(),
+    type: 'OUT',
+    category: 'Pago a Proveedores',
+    description: 'Reposición de queso llanero fresco',
+    amountUsd: 25.00,
+    currencyUsed: 'USD',
+  },
+];
+
+// ============================================================================
+// UTILIDADES DE FORMATO, IMAGEN Y PERSISTENCIA
+// ============================================================================
+const formatUsd = (val) => `$${Number(val || 0).toFixed(2)}`;
+const formatBs = (val) =>
+  `Bs. ${Number(val || 0).toLocaleString('es-VE', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
+
+function compressImageFile(file, maxWidth = 420, quality = 0.78) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('No se pudo leer el archivo'));
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onerror = () => reject(new Error('Imagen no válida'));
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+
+        if (width > maxWidth) {
+          height = Math.round((height * maxWidth) / width);
+          width = maxWidth;
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+        const dataUrl = canvas.toDataURL('image/jpeg', quality);
+        resolve(dataUrl);
+      };
+      img.src = event.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+function useLocalStorage(key, initialValue) {
+  const [storedValue, setStoredValue] = useState(() => {
+    try {
+      const item = window.localStorage.getItem(key);
+      return item ? JSON.parse(item) : initialValue;
+    } catch (error) {
+      console.error(`Error leyendo localStorage (${key}):`, error);
+      return initialValue;
+    }
+  });
+
+  const setValue = (value) => {
+    try {
+      const valueToStore = value instanceof Function ? value(storedValue) : value;
+      setStoredValue(valueToStore);
+      window.localStorage.setItem(key, JSON.stringify(valueToStore));
+    } catch (error) {
+      console.error(`Error guardando localStorage (${key}):`, error);
+    }
+  };
+
+  return [storedValue, setValue];
+}
+
+// ============================================================================
+// COMPONENTE PRINCIPAL: APP
+// ============================================================================
+export default function App() {
+  const [settings, setSettings] = useLocalStorage('abasto_settings_v2', INITIAL_SETTINGS);
+  const [departments, setDepartments] = useLocalStorage('abasto_departments_v2', INITIAL_DEPARTMENTS);
+  const [products, setProducts] = useLocalStorage('abasto_products_v2', INITIAL_PRODUCTS);
+  const [customers, setCustomers] = useLocalStorage('abasto_customers_v2', INITIAL_CUSTOMERS);
+  const [sales, setSales] = useLocalStorage('abasto_sales_v2', INITIAL_SALES);
+  const [cashMovements, setCashMovements] = useLocalStorage('abasto_cash_v2', INITIAL_CASH_MOVEMENTS);
+  const [currentUserCi, setCurrentUserCi] = useLocalStorage('abasto_current_user_ci_v2', null);
+
+  const [appMode, setAppMode] = useState('STORE');
+  const [isAdminUnlocked, setIsAdminUnlocked] = useState(false);
+  const [showPinModal, setShowPinModal] = useState(false);
+  const [pinInput, setPinInput] = useState('');
+  const [showPinText, setShowPinText] = useState(false);
+  const [pinError, setPinError] = useState('');
+
+  const [selectedDepartment, setSelectedDepartment] = useState('Todos');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [cart, setCart] = useLocalStorage('abasto_cart_v2', []);
+  const [onlinePaymentMethod, setOnlinePaymentMethod] = useState('Pago Móvil Bs.');
+  const [isCartOpen, setIsCartOpen] = useState(false);
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+  const [isSupportModalOpen, setIsSupportModalOpen] = useState(false);
+  const [checkoutAfterAuth, setCheckoutAfterAuth] = useState(false);
+  const [whatsappConfirmModal, setWhatsappConfirmModal] = useState(null);
+  const [copiedMsg, setCopiedMsg] = useState(false);
+
+  const brandPrimary = settings.primaryColor || '#059669';
+  const brandAccent = settings.accentColor || '#f59e0b';
+  const brandHeader = settings.headerColor || '#064e3b';
+
+  const [toast, setToast] = useState(null);
+  const showToast = (message, type = 'success') => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 3500);
+  };
+
+  const currentUser = useMemo(
+    () => customers.find((c) => c.ci === currentUserCi) || null,
+    [customers, currentUserCi]
+  );
+
+  const enrichedCart = useMemo(() => {
+    return cart
+      .map((item) => {
+        const product = products.find((p) => p.id === item.productId);
+        if (!product) return null;
+        const isWholesale = item.qty >= product.wholesaleMinQty;
+        const appliedPriceUsd = isWholesale ? product.wholesalePrice : product.retailPrice;
+        const regularTotalUsd = product.retailPrice * item.qty;
+        const lineTotalUsd = appliedPriceUsd * item.qty;
+        const savingsUsd = regularTotalUsd - lineTotalUsd;
+        return {
+          ...item,
+          product,
+          isWholesale,
+          appliedPriceUsd,
+          lineTotalUsd,
+          savingsUsd,
+          missingForWholesale: isWholesale ? 0 : product.wholesaleMinQty - item.qty,
+        };
+      })
+      .filter(Boolean);
+  }, [cart, products]);
+
+  const cartSummary = useMemo(() => {
+    const subtotalUsd = enrichedCart.reduce((acc, item) => acc + item.lineTotalUsd, 0);
+    const totalSavingsUsd = enrichedCart.reduce((acc, item) => acc + item.savingsUsd, 0);
+    const totalItemsCount = enrichedCart.reduce((acc, item) => acc + item.qty, 0);
+    const qualifiesFreeDelivery = subtotalUsd >= settings.freeDeliveryThreshold;
+    const deliveryUsd =
+      subtotalUsd === 0 ? 0 : qualifiesFreeDelivery ? 0 : Number(settings.deliveryFee);
+    const missingForFreeDelivery = Math.max(0, settings.freeDeliveryThreshold - subtotalUsd);
+    const totalUsd = subtotalUsd + deliveryUsd;
+    const totalBs = totalUsd * settings.exchangeRate;
+
+    return {
+      subtotalUsd,
+      totalSavingsUsd,
+      totalItemsCount,
+      qualifiesFreeDelivery,
+      deliveryUsd,
+      missingForFreeDelivery,
+      totalUsd,
+      totalBs,
+    };
+  }, [enrichedCart, settings]);
+
+  const addToCart = (productId, delta = 1) => {
+    const product = products.find((p) => p.id === productId);
+    if (!product) return;
+
+    setCart((prev) => {
+      const existing = prev.find((i) => i.productId === productId);
+      const currentQty = existing ? existing.qty : 0;
+      const newQty = currentQty + delta;
+
+      if (newQty <= 0) {
+        return prev.filter((i) => i.productId !== productId);
+      }
+      if (newQty > product.stock) {
+        showToast(`Solo hay ${product.stock} unidades disponibles de ${product.name}`, 'warning');
+        return prev;
+      }
+
+      if (existing) {
+        return prev.map((i) => (i.productId === productId ? { ...i, qty: newQty } : i));
+      } else {
+        return [...prev, { productId, qty: newQty }];
+      }
+    });
+  };
+
+  const setCartQtyDirect = (productId, qty) => {
+    const product = products.find((p) => p.id === productId);
+    if (!product) return;
+    if (qty <= 0) {
+      setCart((prev) => prev.filter((i) => i.productId !== productId));
+      return;
+    }
+    const clampedQty = Math.min(qty, product.stock);
+    setCart((prev) => {
+      const existing = prev.find((i) => i.productId === productId);
+      if (existing) {
+        return prev.map((i) => (i.productId === productId ? { ...i, qty: clampedQty } : i));
+      }
+      return [...prev, { productId, qty: clampedQty }];
+    });
+  };
+
+  const handleInitiateCheckout = () => {
+    if (enrichedCart.length === 0) return;
+    if (!currentUser) {
+      setCheckoutAfterAuth(true);
+      setIsCartOpen(false);
+      setIsProfileModalOpen(true);
+      showToast('Por favor regístrate o inicia sesión para completar tu pedido', 'info');
+      return;
+    }
+    completeOnlineOrder(currentUser);
+  };
+
+  const completeOnlineOrder = (customer) => {
+    for (const item of enrichedCart) {
+      if (item.qty > item.product.stock) {
+        showToast(`Stock insuficiente para ${item.product.name}`, 'error');
+        return;
+      }
+    }
+
+    const totalCostUsd = enrichedCart.reduce(
+      (acc, item) => acc + item.product.costPrice * item.qty,
+      0
+    );
+
+    const isCashPayment = onlinePaymentMethod.toLowerCase().includes('efectivo');
+    const dispatchRuleText = isCashPayment
+      ? 'Pago en Efectivo: Despacho sujeto a modalidad contra-entrega / verificación en efectivo.'
+      : 'Pago Digital: El delivery sale inmediatamente tras confirmar el pago.';
+
+    const newSale = {
+      id: `VTA-${Math.floor(1000 + Math.random() * 9000)}`,
+      date: new Date().toISOString(),
+      channel: 'ONLINE',
+      customerCi: customer.ci,
+      customerName: `${customer.firstName} ${customer.lastName}`,
+      customerPhone: customer.phone,
+      customerAddress: customer.address,
+      paymentMethod: onlinePaymentMethod,
+      items: enrichedCart.map((i) => ({
+        productId: i.product.id,
+        name: i.product.name,
+        qty: i.qty,
+        unitPrice: i.appliedPriceUsd,
+        costPrice: i.product.costPrice,
+        isWholesale: i.isWholesale,
+      })),
+      subtotalUsd: cartSummary.subtotalUsd,
+      deliveryUsd: cartSummary.deliveryUsd,
+      totalUsd: cartSummary.totalUsd,
+      totalCostUsd,
+      exchangeRate: settings.exchangeRate,
+      totalBs: cartSummary.totalBs,
+    };
+
+    setProducts((prevProducts) =>
+      prevProducts.map((p) => {
+        const bought = enrichedCart.find((i) => i.productId === p.id);
+        if (!bought) return p;
+        return { ...p, stock: Math.max(0, p.stock - bought.qty) };
+      })
+    );
+
+    setSales((prev) => [newSale, ...prev]);
+    setCashMovements((prev) => [
+      {
+        id: `MOV-${Date.now()}`,
+        date: new Date().toISOString(),
+        type: 'IN',
+        category: `Venta Online (${onlinePaymentMethod})`,
+        description: `Pedido ${newSale.id} - ${newSale.customerName} (${newSale.customerCi})`,
+        amountUsd: newSale.totalUsd,
+        currencyUsed: onlinePaymentMethod.includes('Bs') ? 'BS' : 'USD',
+      },
+      ...prev,
+    ]);
+
+    const itemsText = enrichedCart
+      .map(
+        (i) =>
+          `• ${i.qty}x ${i.product.name} (${i.isWholesale ? 'Mayor' : 'Detal'}) = ${formatUsd(
+            i.lineTotalUsd
+          )}`
+      )
+      .join('\n');
+
+    const waMessage =
+      `🛒 *NUEVO PEDIDO - ${settings.storeName.toUpperCase()}*\n` +
+      `📋 *Pedido N°:* ${newSale.id}\n\n` +
+      `👤 *DATOS DEL CLIENTE:*\n` +
+      `• *Nombre:* ${customer.firstName} ${customer.lastName}\n` +
+      `• *Cédula (CI):* ${customer.ci}\n` +
+      `• *Teléfono:* ${customer.phone}\n` +
+      `• *Ubicación:* ${customer.address}\n\n` +
+      `🛍️ *DETALLE DE LA COMPRA:*\n${itemsText}\n\n` +
+      `💳 *Método de Pago:* ${onlinePaymentMethod}\n` +
+      `🚚 *Delivery:* ${
+        cartSummary.deliveryUsd === 0 ? 'GRATIS 🎉' : formatUsd(cartSummary.deliveryUsd)
+      }\n` +
+      `📦 *Condición de Despacho:* ${dispatchRuleText}\n\n` +
+      `💵 *TOTAL EN DÓLARES:* ${formatUsd(cartSummary.totalUsd)}\n` +
+      `🇻🇪 *TOTAL EN BOLÍVARES:* ${formatBs(cartSummary.totalBs)} _(Tasa: Bs. ${Number(
+        settings.exchangeRate
+      ).toFixed(2)})_\n\n` +
+      `¡Hola! Envío mi pedido para coordinar el pago y la entrega.`;
+
+    const cleanPhone = settings.whatsappNumber.replace(/\D/g, '');
+    const waUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(waMessage)}`;
+
+    setCart([]);
+    setIsCartOpen(false);
+    setWhatsappConfirmModal({ sale: newSale, message: waMessage, url: waUrl });
+    showToast('¡Pedido registrado con éxito! Listo para enviar a WhatsApp');
+  };
+
+  const handleAdminButtonClick = () => {
+    if (appMode === 'ADMIN') {
+      setAppMode('STORE');
+      return;
+    }
+    if (isAdminUnlocked) {
+      setAppMode('ADMIN');
+    } else {
+      setPinInput('');
+      setShowPinText(false);
+      setPinError('');
+      setShowPinModal(true);
+    }
+  };
+
+  const handleVerifyPin = (e) => {
+    e.preventDefault();
+    if (pinInput === settings.adminPin) {
+      setIsAdminUnlocked(true);
+      setShowPinModal(false);
+      setAppMode('ADMIN');
+      showToast('Bienvenido al Panel Administrativo y POS');
+    } else {
+      setPinError('Contraseña / PIN incorrecto. Intenta nuevamente.');
+    }
+  };
+
+  const storeDepartmentList = useMemo(() => {
+    return [
+      { id: 'all', name: 'Todos', emoji: '🏪' },
+      { id: 'offers', name: 'Ofertas y Promociones', emoji: '🔥' },
+      ...departments,
+    ];
+  }, [departments]);
+
+  const filteredProducts = useMemo(() => {
+    return products.filter((p) => {
+      const matchesSearch =
+        p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        p.department.toLowerCase().includes(searchQuery.toLowerCase());
+
+      if (!matchesSearch) return false;
+
+      if (selectedDepartment === 'Todos') return true;
+      if (selectedDepartment === 'Ofertas y Promociones') return p.isOffer;
+      return p.department === selectedDepartment;
+    });
+  }, [products, searchQuery, selectedDepartment]);
+
+  const lowStockCount = useMemo(
+    () => products.filter((p) => p.stock <= 10).length,
+    [products]
+  );
+
+  return (
+    <div className="min-h-screen bg-slate-50 text-slate-800 font-sans flex flex-col">
+      {toast && (
+        <div className="fixed bottom-20 right-5 z-50 animate-bounce">
+          <div
+            style={toast.type === 'success' ? { backgroundColor: brandPrimary } : undefined}
+            className={`flex items-center gap-3 px-4 py-3 rounded-2xl shadow-xl border text-sm font-medium ${
+              toast.type === 'error'
+                ? 'bg-red-600 text-white border-red-700'
+                : toast.type === 'warning'
+                ? 'bg-amber-500 text-white border-amber-600'
+                : toast.type === 'info'
+                ? 'bg-slate-800 text-white border-slate-700'
+                : 'text-white border-white/20'
+            }`}
+          >
+            <CheckCircle2 className="w-5 h-5 shrink-0" />
+            <span>{toast.message}</span>
+          </div>
+        </div>
+      )}
+
+      <header className="sticky top-0 z-30 bg-white border-b border-slate-200 shadow-sm">
+        <div
+          style={{ backgroundColor: brandHeader }}
+          className="text-white text-xs py-1.5 px-4 transition-colors"
+        >
+          <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-3 sm:gap-4">
+              <span className="inline-flex items-center gap-1.5 font-semibold bg-black/25 px-2.5 py-0.5 rounded-full border border-white/15">
+                <DollarSign className="w-3.5 h-3.5" style={{ color: brandAccent }} />
+                Tasa del día:{' '}
+                <strong style={{ color: brandAccent }}>
+                  Bs. {Number(settings.exchangeRate).toFixed(2)}
+                </strong>
+              </span>
+              <span className="hidden md:inline-flex items-center gap-1 text-white/90">
+                <Truck className="w-3.5 h-3.5" style={{ color: brandAccent }} />
+                Delivery GRATIS desde {formatUsd(settings.freeDeliveryThreshold)}
+              </span>
+            </div>
+
+            <div className="flex items-center gap-2">
+              {appMode === 'STORE' && (
+                <button
+                  onClick={() => setIsSupportModalOpen(true)}
+                  className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full font-semibold bg-white/15 hover:bg-white/25 text-white border border-white/20 transition cursor-pointer"
+                >
+                  <Headphones className="w-3.5 h-3.5" style={{ color: brandAccent }} />
+                  <span>Atención al Cliente</span>
+                </button>
+              )}
+
+              <button
+                onClick={handleAdminButtonClick}
+                style={
+                  appMode === 'ADMIN'
+                    ? { backgroundColor: brandAccent, color: '#0f172a' }
+                    : undefined
+                }
+                className={`inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full font-semibold transition cursor-pointer ${
+                  appMode === 'ADMIN'
+                    ? 'hover:opacity-90'
+                    : 'bg-black/30 hover:bg-black/45 text-white border border-white/20'
+                }`}
+              >
+                {appMode === 'ADMIN' ? (
+                  <>
+                    <Store className="w-3.5 h-3.5" />
+                    Volver a Tienda Online
+                  </>
+                ) : (
+                  <>
+                    <Lock className="w-3.5 h-3.5" />
+                    Panel Admin / POS
+                    {lowStockCount > 0 && (
+                      <span className="ml-1 bg-red-500 text-white text-[10px] px-1.5 rounded-full">
+                        {lowStockCount}
+                      </span>
+                    )}
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
+          <div
+            onClick={() => setAppMode('STORE')}
+            className="flex items-center gap-2.5 cursor-pointer shrink-0"
+          >
+            {settings.storeLogo ? (
+              <img
+                src={settings.storeLogo}
+                alt={settings.storeName}
+                className="w-11 h-11 rounded-xl object-cover border border-slate-200 shadow-sm"
+              />
+            ) : (
+              <div
+                style={{ backgroundColor: brandPrimary }}
+                className="w-10 h-10 rounded-xl flex items-center justify-center text-white shadow-md"
+              >
+                <ShoppingBag className="w-6 h-6" />
+              </div>
+            )}
+            <div>
+              <h1 className="text-lg sm:text-xl font-extrabold tracking-tight text-slate-900 leading-none">
+                {settings.storeName}
+              </h1>
+              <p
+                style={{ color: brandPrimary }}
+                className="text-[11px] font-semibold mt-0.5"
+              >
+                {appMode === 'ADMIN'
+                  ? 'SISTEMA POS & ADMINISTRACIÓN'
+                  : settings.storeSlogan || 'Tu mercado rápido y fresco'}
+              </p>
+            </div>
+          </div>
+
+          {appMode === 'STORE' && (
+            <div className="flex-1 max-w-xl hidden md:block">
+              <div className="relative">
+                <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Buscar productos o departamentos..."
+                  className="w-full pl-10 pr-4 py-2.5 bg-slate-100 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:bg-white transition"
+                  style={{ '--tw-ring-color': brandPrimary }}
+                />
+                {searchQuery && (
+                  <button
+                    onClick={() => setSearchQuery('')}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+
+          {appMode === 'STORE' && (
+            <div className="flex items-center gap-2 sm:gap-3">
+              <button
+                onClick={() => {
+                  setCheckoutAfterAuth(false);
+                  setIsProfileModalOpen(true);
+                }}
+                className="flex items-center gap-2 px-3 py-2 rounded-xl border border-slate-200 hover:bg-slate-50 transition cursor-pointer"
+              >
+                {currentUser?.photo ? (
+                  <img
+                    src={currentUser.photo}
+                    alt={currentUser.firstName}
+                    style={{ borderColor: brandPrimary }}
+                    className="w-7 h-7 rounded-full object-cover border-2"
+                  />
+                ) : (
+                  <div
+                    style={{ backgroundColor: `${brandPrimary}20`, color: brandPrimary }}
+                    className="w-7 h-7 rounded-full flex items-center justify-center font-bold text-xs"
+                  >
+                    {currentUser ? currentUser.firstName[0] : <User className="w-4 h-4" />}
+                  </div>
+                )}
+                <div className="text-left hidden sm:block">
+                  <p className="text-xs font-bold text-slate-800 leading-tight">
+                    {currentUser ? `${currentUser.firstName}` : 'Ingresar / Registro'}
+                  </p>
+                  <p className="text-[10px] text-slate-500">
+                    {currentUser ? currentUser.ci : 'Mi Cuenta'}
+                  </p>
+                </div>
+              </button>
+
+              <button
+                onClick={() => setIsCartOpen(true)}
+                style={{ backgroundColor: brandPrimary }}
+                className="relative flex items-center gap-2 hover:opacity-95 text-white px-3.5 py-2.5 rounded-xl font-semibold text-sm shadow-md transition cursor-pointer"
+              >
+                <ShoppingCart className="w-5 h-5" />
+                <span className="hidden sm:inline">Carrito</span>
+                <span
+                  style={{ backgroundColor: brandAccent }}
+                  className="text-slate-900 text-xs font-extrabold px-2 py-0.5 rounded-full"
+                >
+                  {cartSummary.totalItemsCount}
+                </span>
+              </button>
+            </div>
+          )}
+        </div>
+
+        {appMode === 'STORE' && (
+          <div className="px-4 pb-3 md:hidden">
+            <div className="relative">
+              <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Buscar productos en la tienda..."
+                className="w-full pl-10 pr-4 py-2 bg-slate-100 border border-slate-200 rounded-xl text-sm focus:outline-none focus:bg-white"
+              />
+            </div>
+          </div>
+        )}
+      </header>
+
+      {appMode === 'STORE' ? (
+        <main className="flex-1 max-w-7xl w-full mx-auto px-4 py-6 space-y-6">
+          <div
+            style={{
+              background: `linear-gradient(120deg, ${brandHeader} 0%, ${brandPrimary} 100%)`,
+            }}
+            className="relative overflow-hidden rounded-3xl text-white p-6 sm:p-8 shadow-lg"
+          >
+            <div className="relative z-10 max-w-2xl space-y-3">
+              <div
+                style={{ backgroundColor: brandAccent }}
+                className="inline-flex items-center gap-1.5 text-slate-950 text-xs font-extrabold px-3 py-1 rounded-full uppercase tracking-wide"
+              >
+                <Tag className="w-3.5 h-3.5" />
+                Precios al Mayor y al Detal
+              </div>
+              <h2 className="text-2xl sm:text-4xl font-extrabold tracking-tight leading-tight">
+                Haz tu compra completa sin salir de casa
+              </h2>
+              <p className="text-white/90 text-sm sm:text-base max-w-xl">
+                Aprovecha descuentos automáticos llevando por cantidad y obtén{' '}
+                <strong style={{ color: brandAccent }} className="underline">
+                  Delivery GRATIS desde {formatUsd(settings.freeDeliveryThreshold)}
+                </strong>
+                . Pagos digitales salen de inmediato; efectivo al recibir.
+              </p>
+              <div className="pt-2 flex flex-wrap gap-3">
+                <button
+                  onClick={() => setSelectedDepartment('Ofertas y Promociones')}
+                  style={{ color: brandHeader }}
+                  className="bg-white hover:bg-slate-50 font-bold text-sm px-5 py-2.5 rounded-xl shadow transition cursor-pointer inline-flex items-center gap-2"
+                >
+                  <Tag className="w-4 h-4" style={{ color: brandAccent }} />
+                  Ver Ofertas de Hoy
+                </button>
+                <button
+                  onClick={() => setIsSupportModalOpen(true)}
+                  className="bg-black/25 hover:bg-black/35 text-white border border-white/25 font-semibold text-sm px-5 py-2.5 rounded-xl transition cursor-pointer inline-flex items-center gap-2"
+                >
+                  <Headphones className="w-4 h-4" />
+                  Atención al Cliente
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-bold uppercase tracking-wider text-slate-500">
+                Departamentos y Rubros
+              </h3>
+              <span className="text-xs text-slate-400">
+                Mostrando {filteredProducts.length} productos
+              </span>
+            </div>
+            <div className="flex items-center gap-2 overflow-x-auto pb-2">
+              {storeDepartmentList.map((dept) => {
+                const isSelected = selectedDepartment === dept.name;
+                const isOfferTab = dept.name === 'Ofertas y Promociones';
+                return (
+                  <button
+                    key={dept.id}
+                    onClick={() => setSelectedDepartment(dept.name)}
+                    style={
+                      isSelected
+                        ? {
+                            backgroundColor: isOfferTab ? brandAccent : brandPrimary,
+                            color: isOfferTab ? '#0f172a' : '#ffffff',
+                          }
+                        : undefined
+                    }
+                    className={`px-4 py-2 rounded-xl text-sm font-semibold whitespace-nowrap transition cursor-pointer flex items-center gap-1.5 ${
+                      isSelected
+                        ? 'shadow-md'
+                        : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'
+                    }`}
+                  >
+                    <span>{dept.emoji}</span>
+                    {dept.name}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {filteredProducts.length === 0 ? (
+            <div className="bg-white rounded-3xl border border-slate-200 p-12 text-center space-y-3">
+              <div className="text-5xl">🔍</div>
+              <h3 className="text-lg font-bold text-slate-800">No encontramos ese producto</h3>
+              <p className="text-sm text-slate-500">
+                Intenta buscar con otro nombre o explora todos los departamentos.
+              </p>
+              <button
+                onClick={() => {
+                  setSearchQuery('');
+                  setSelectedDepartment('Todos');
+                }}
+                style={{ backgroundColor: brandPrimary }}
+                className="px-4 py-2 text-white rounded-xl text-sm font-semibold hover:opacity-95 cursor-pointer"
+              >
+                Ver todo el catálogo
+              </button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+              {filteredProducts.map((product) => {
+                const cartItem = cart.find((i) => i.productId === product.id);
+                const qtyInCart = cartItem ? cartItem.qty : 0;
+                const isWholesaleActive = qtyInCart >= product.wholesaleMinQty;
+                const outOfStock = product.stock <= 0;
+
+                return (
+                  <div
+                    key={product.id}
+                    style={isWholesaleActive ? { borderColor: brandPrimary } : undefined}
+                    className={`bg-white rounded-2xl border transition-all duration-200 flex flex-col justify-between overflow-hidden hover:shadow-lg ${
+                      isWholesaleActive ? 'ring-2 ring-emerald-500/20' : 'border-slate-200'
+                    }`}
+                  >
+                    <div>
+                      <div className="relative h-44 bg-gradient-to-b from-slate-50 to-slate-100/70 flex items-center justify-center border-b border-slate-100 overflow-hidden">
+                        {product.image ? (
+                          <img
+                            src={product.image}
+                            alt={product.name}
+                            className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
+                          />
+                        ) : (
+                          <span className="text-6xl select-none transform hover:scale-110 transition-transform">
+                            {product.emoji || '📦'}
+                          </span>
+                        )}
+
+                        <div className="absolute top-3 left-3 flex flex-col gap-1.5">
+                          {product.isOffer && (
+                            <span
+                              style={{ backgroundColor: brandAccent }}
+                              className="text-slate-950 text-[11px] font-extrabold px-2.5 py-0.5 rounded-full shadow-sm flex items-center gap-1"
+                            >
+                              <Tag className="w-3 h-3" /> OFERTA
+                            </span>
+                          )}
+                          {isWholesaleActive && (
+                            <span
+                              style={{ backgroundColor: brandPrimary }}
+                              className="text-white text-[11px] font-extrabold px-2.5 py-0.5 rounded-full shadow-sm"
+                            >
+                              ¡PRECIO MAYOR APLICADO!
+                            </span>
+                          )}
+                        </div>
+
+                        <span
+                          className={`absolute top-3 right-3 text-[11px] font-semibold px-2 py-0.5 rounded-lg shadow-2xs ${
+                            outOfStock
+                              ? 'bg-red-100 text-red-700'
+                              : product.stock <= 10
+                              ? 'bg-amber-100 text-amber-800'
+                              : 'bg-white/95 text-slate-700 border border-slate-200'
+                          }`}
+                        >
+                          {outOfStock ? 'Agotado' : `Disp: ${product.stock}`}
+                        </span>
+                      </div>
+
+                      <div className="p-4 space-y-3">
+                        <div>
+                          <span
+                            style={{ color: brandPrimary }}
+                            className="text-[11px] font-bold uppercase tracking-wider"
+                          >
+                            {product.department}
+                          </span>
+                          <h4 className="font-bold text-slate-900 text-base leading-snug mt-0.5">
+                            {product.name}
+                          </h4>
+                          <p className="text-xs text-slate-400 mt-0.5">{product.unit}</p>
+                        </div>
+
+                        <div className="space-y-2 pt-1">
+                          <div
+                            className={`p-2.5 rounded-xl border ${
+                              !isWholesaleActive
+                                ? 'bg-slate-50 border-slate-200'
+                                : 'bg-slate-50/40 border-slate-100 opacity-60'
+                            }`}
+                          >
+                            <div className="flex items-baseline justify-between">
+                              <span className="text-xs font-medium text-slate-500">Al Detal:</span>
+                              <div className="text-right">
+                                <span className="text-lg font-extrabold text-slate-900">
+                                  {formatUsd(product.retailPrice)}
+                                </span>
+                                <span className="block text-xs font-semibold text-slate-500">
+                                  {formatBs(product.retailPrice * settings.exchangeRate)}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div
+                            style={
+                              isWholesaleActive
+                                ? {
+                                    backgroundColor: `${brandPrimary}12`,
+                                    borderColor: brandPrimary,
+                                  }
+                                : undefined
+                            }
+                            className={`p-2.5 rounded-xl border ${
+                              isWholesaleActive ? '' : 'bg-slate-50/50 border-slate-200/70'
+                            }`}
+                          >
+                            <div className="flex items-baseline justify-between">
+                              <span
+                                style={{ color: brandPrimary }}
+                                className="text-xs font-bold"
+                              >
+                                Al Mayor ({product.wholesaleMinQty}+ und):
+                              </span>
+                              <div className="text-right">
+                                <span
+                                  style={{ color: brandPrimary }}
+                                  className="text-base font-extrabold"
+                                >
+                                  {formatUsd(product.wholesalePrice)}
+                                </span>
+                                <span
+                                  style={{ color: brandPrimary }}
+                                  className="block text-[11px] font-semibold opacity-85"
+                                >
+                                  {formatBs(product.wholesalePrice * settings.exchangeRate)}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="p-4 pt-0">
+                      {outOfStock ? (
+                        <button
+                          disabled
+                          className="w-full py-2.5 rounded-xl bg-slate-100 text-slate-400 font-semibold text-sm cursor-not-allowed"
+                        >
+                          Producto Agotado
+                        </button>
+                      ) : qtyInCart === 0 ? (
+                        <button
+                          onClick={() => addToCart(product.id, 1)}
+                          style={{ backgroundColor: brandPrimary }}
+                          className="w-full py-2.5 px-4 rounded-xl hover:opacity-95 active:scale-[0.99] text-white font-bold text-sm shadow-sm transition flex items-center justify-center gap-2 cursor-pointer"
+                        >
+                          <Plus className="w-4 h-4" />
+                          Agregar al Carrito
+                        </button>
+                      ) : (
+                        <div className="space-y-1.5">
+                          <div
+                            style={{
+                              backgroundColor: `${brandPrimary}12`,
+                              borderColor: `${brandPrimary}40`,
+                            }}
+                            className="flex items-center justify-between border rounded-xl p-1"
+                          >
+                            <button
+                              onClick={() => addToCart(product.id, -1)}
+                              style={{ color: brandPrimary }}
+                              className="w-9 h-9 rounded-lg bg-white hover:bg-slate-50 flex items-center justify-center shadow-sm transition cursor-pointer"
+                            >
+                              <Minus className="w-4 h-4" />
+                            </button>
+                            <div className="text-center">
+                              <span className="font-extrabold text-slate-900 text-base">
+                                {qtyInCart}
+                              </span>
+                              <span
+                                style={{ color: brandPrimary }}
+                                className="block text-[10px] font-semibold leading-none"
+                              >
+                                en carrito
+                              </span>
+                            </div>
+                            <button
+                              onClick={() => addToCart(product.id, 1)}
+                              disabled={qtyInCart >= product.stock}
+                              style={{ backgroundColor: brandPrimary }}
+                              className="w-9 h-9 rounded-lg text-white hover:opacity-95 disabled:opacity-40 flex items-center justify-center shadow-sm transition cursor-pointer"
+                            >
+                              <Plus className="w-4 h-4" />
+                            </button>
+                          </div>
+                          {!isWholesaleActive && (
+                            <p className="text-[11px] text-center text-amber-700 font-medium">
+                              ¡Agrega {product.wholesaleMinQty - qtyInCart} más para precio al mayor!
+                            </p>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          <button
+            onClick={() => setIsSupportModalOpen(true)}
+            style={{ backgroundColor: brandPrimary }}
+            className="fixed bottom-5 right-5 z-30 flex items-center gap-2.5 text-white px-4 py-3 rounded-full shadow-xl hover:scale-105 transition cursor-pointer border-2 border-white"
+            title="Atención al Cliente por WhatsApp"
+          >
+            <Headphones className="w-5 h-5" />
+            <span className="text-xs font-extrabold hidden sm:inline">Atención al Cliente</span>
+          </button>
+        </main>
+      ) : (
+        <AdminPanel
+          settings={settings}
+          setSettings={setSettings}
+          departments={departments}
+          setDepartments={setDepartments}
+          products={products}
+          setProducts={setProducts}
+          customers={customers}
+          setCustomers={setCustomers}
+          sales={sales}
+          setSales={setSales}
+          cashMovements={cashMovements}
+          setCashMovements={setCashMovements}
+          showToast={showToast}
+        />
+      )}
+
+      {isCartOpen && (
+        <div className="fixed inset-0 z-50 flex justify-end bg-slate-900/50 backdrop-blur-xs">
+          <div className="w-full max-w-md bg-white h-full shadow-2xl flex flex-col justify-between animate-in slide-in-from-right duration-200">
+            <div className="p-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
+              <div className="flex items-center gap-2.5">
+                <div
+                  style={{ backgroundColor: brandPrimary }}
+                  className="w-9 h-9 rounded-xl text-white flex items-center justify-center"
+                >
+                  <ShoppingCart className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-slate-900 text-base">Tu Carrito de Compra</h3>
+                  <p className="text-xs text-slate-500">
+                    {cartSummary.totalItemsCount} artículos seleccionados
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsCartOpen(false)}
+                className="p-2 rounded-xl hover:bg-slate-200 text-slate-500 cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div
+              style={{ backgroundColor: `${brandPrimary}12` }}
+              className="px-4 py-3 border-b border-slate-200"
+            >
+              {cartSummary.qualifiesFreeDelivery ? (
+                <div
+                  style={{ color: brandPrimary }}
+                  className="flex items-center gap-2 text-xs font-bold"
+                >
+                  <Truck className="w-4 h-4 shrink-0" />
+                  <span>¡Felicidades! Tu pedido califica para DELIVERY GRATIS 🎉</span>
+                </div>
+              ) : (
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-slate-700 font-medium">
+                      Agrega{' '}
+                      <strong style={{ color: brandPrimary }}>
+                        {formatUsd(cartSummary.missingForFreeDelivery)}
+                      </strong>{' '}
+                      más para <strong>Delivery Gratis</strong>
+                    </span>
+                    <span style={{ color: brandPrimary }} className="font-bold">
+                      {Math.min(
+                        100,
+                        Math.round((cartSummary.subtotalUsd / settings.freeDeliveryThreshold) * 100)
+                      )}
+                      %
+                    </span>
+                  </div>
+                  <div className="w-full h-2 bg-slate-200 rounded-full overflow-hidden">
+                    <div
+                      className="h-full rounded-full transition-all duration-300"
+                      style={{
+                        backgroundColor: brandPrimary,
+                        width: `${Math.min(
+                          100,
+                          (cartSummary.subtotalUsd / settings.freeDeliveryThreshold) * 100
+                        )}%`,
+                      }}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-4 space-y-3">
+              {enrichedCart.length === 0 ? (
+                <div className="h-full flex flex-col items-center justify-center text-center py-12 space-y-3">
+                  <div className="w-16 h-16 rounded-full bg-slate-100 flex items-center justify-center text-3xl">
+                    🛒
+                  </div>
+                  <h4 className="font-bold text-slate-800">Tu carrito está vacío</h4>
+                  <p className="text-xs text-slate-500 max-w-xs">
+                    Explora nuestros departamentos y agrega productos para armar tu pedido.
+                  </p>
+                </div>
+              ) : (
+                enrichedCart.map((item) => (
+                  <div
+                    key={item.productId}
+                    className="p-3 rounded-2xl border border-slate-200 bg-white flex items-center gap-3 shadow-2xs"
+                  >
+                    {item.product.image ? (
+                      <img
+                        src={item.product.image}
+                        alt={item.product.name}
+                        className="w-12 h-12 rounded-xl object-cover border border-slate-200 shrink-0"
+                      />
+                    ) : (
+                      <div className="w-12 h-12 rounded-xl bg-slate-100 flex items-center justify-center text-2xl shrink-0">
+                        {item.product.emoji}
+                      </div>
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <h5 className="font-bold text-slate-800 text-sm truncate">
+                        {item.product.name}
+                      </h5>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <span
+                          style={{ color: brandPrimary }}
+                          className="text-xs font-bold"
+                        >
+                          {formatUsd(item.appliedPriceUsd)} c/u
+                        </span>
+                        {item.isWholesale ? (
+                          <span
+                            style={{
+                              backgroundColor: `${brandPrimary}20`,
+                              color: brandPrimary,
+                            }}
+                            className="text-[10px] font-extrabold px-1.5 py-0.5 rounded"
+                          >
+                            Mayor
+                          </span>
+                        ) : (
+                          <span className="text-[10px] text-slate-400">
+                            (Mayor desde {item.product.wholesaleMinQty})
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs font-extrabold text-slate-900 mt-1">
+                        Subtotal: {formatUsd(item.lineTotalUsd)}{' '}
+                        <span className="font-normal text-slate-500">
+                          ({formatBs(item.lineTotalUsd * settings.exchangeRate)})
+                        </span>
+                      </p>
+                    </div>
+
+                    <div className="flex flex-col items-end gap-1.5">
+                      <button
+                        onClick={() => setCartQtyDirect(item.productId, 0)}
+                        className="text-slate-400 hover:text-red-500 p-1 cursor-pointer"
+                        title="Eliminar"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                      <div className="flex items-center gap-1.5 bg-slate-100 rounded-lg p-0.5">
+                        <button
+                          onClick={() => addToCart(item.productId, -1)}
+                          className="w-7 h-7 rounded-md bg-white text-slate-700 flex items-center justify-center shadow-2xs cursor-pointer"
+                        >
+                          <Minus className="w-3.5 h-3.5" />
+                        </button>
+                        <span className="w-6 text-center font-bold text-xs">{item.qty}</span>
+                        <button
+                          onClick={() => addToCart(item.productId, 1)}
+                          style={{ backgroundColor: brandPrimary }}
+                          className="w-7 h-7 rounded-md text-white flex items-center justify-center shadow-2xs cursor-pointer"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            {enrichedCart.length > 0 && (
+              <div className="p-4 border-t border-slate-200 bg-slate-50 space-y-3">
+                {cartSummary.totalSavingsUsd > 0 && (
+                  <div
+                    style={{ backgroundColor: `${brandPrimary}18`, color: brandPrimary }}
+                    className="text-xs font-bold px-3 py-1.5 rounded-xl flex items-center justify-between"
+                  >
+                    <span>🎉 Ahorro por compra al Mayor:</span>
+                    <span>-{formatUsd(cartSummary.totalSavingsUsd)}</span>
+                  </div>
+                )}
+
+                <div className="bg-white p-3 rounded-2xl border border-slate-200 space-y-2">
+                  <label className="block text-[11px] font-extrabold uppercase text-slate-600">
+                    Método de Pago
+                  </label>
+                  <select
+                    value={onlinePaymentMethod}
+                    onChange={(e) => setOnlinePaymentMethod(e.target.value)}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-bold text-slate-800 focus:outline-none"
+                  >
+                    <option value="Pago Móvil Bs.">Pago Móvil Bs. (Salida Inmediata)</option>
+                    <option value="Transferencia Bancaria Bs.">
+                      Transferencia Bancaria Bs. (Salida Inmediata)
+                    </option>
+                    <option value="Zelle / Binance ($)">
+                      Zelle / Binance ($) (Salida Inmediata)
+                    </option>
+                    <option value="Efectivo ($ / Bs.) al recibir">
+                      Efectivo ($ / Bs.) al recibir
+                    </option>
+                  </select>
+
+                  {onlinePaymentMethod.toLowerCase().includes('efectivo') ? (
+                    <div className="flex items-start gap-2 text-[11px] text-amber-800 bg-amber-50 border border-amber-200 p-2 rounded-xl">
+                      <Info className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                      <span>
+                        <strong>Modalidad Efectivo:</strong> Tu pedido queda agendado para cobro
+                        contra-entrega / verificación en efectivo.
+                      </span>
+                    </div>
+                  ) : (
+                    <div
+                      style={{
+                        backgroundColor: `${brandPrimary}12`,
+                        borderColor: `${brandPrimary}35`,
+                        color: brandPrimary,
+                      }}
+                      className="flex items-start gap-2 text-[11px] border p-2 rounded-xl font-medium"
+                    >
+                      <Truck className="w-4 h-4 shrink-0 mt-0.5" />
+                      <span>
+                        <strong>Despacho Prioritario:</strong> Después de reportar tu pago
+                        digital, ¡el delivery sale de inmediato!
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                <div className="space-y-1 text-sm">
+                  <div className="flex justify-between text-slate-600">
+                    <span>Subtotal Productos:</span>
+                    <span className="font-semibold">{formatUsd(cartSummary.subtotalUsd)}</span>
+                  </div>
+                  <div className="flex justify-between text-slate-600">
+                    <span>Delivery:</span>
+                    <span
+                      style={
+                        cartSummary.deliveryUsd === 0 ? { color: brandPrimary } : undefined
+                      }
+                      className="font-bold text-slate-800"
+                    >
+                      {cartSummary.deliveryUsd === 0
+                        ? 'GRATIS'
+                        : formatUsd(cartSummary.deliveryUsd)}
+                    </span>
+                  </div>
+                  <div className="pt-2 border-t border-slate-200 flex items-baseline justify-between">
+                    <span className="font-extrabold text-slate-900 text-base">TOTAL A PAGAR:</span>
+                    <div className="text-right">
+                      <span
+                        style={{ color: brandPrimary }}
+                        className="text-xl font-black block"
+                      >
+                        {formatUsd(cartSummary.totalUsd)}
+                      </span>
+                      <span className="text-sm font-bold text-slate-700">
+                        {formatBs(cartSummary.totalBs)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <button
+                  onClick={handleInitiateCheckout}
+                  style={{ backgroundColor: brandPrimary }}
+                  className="w-full py-3.5 px-4 rounded-2xl hover:opacity-95 text-white font-extrabold text-sm shadow-lg flex items-center justify-center gap-2 transition cursor-pointer"
+                >
+                  <MessageCircle className="w-5 h-5" />
+                  {currentUser
+                    ? 'Finalizar Pedido por WhatsApp'
+                    : 'Registrarme y Pedir por WhatsApp'}
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {isSupportModalOpen && (
+        <CustomerSupportModal
+          onClose={() => setIsSupportModalOpen(false)}
+          settings={settings}
+          currentUser={currentUser}
+          customers={customers}
+          setCustomers={setCustomers}
+          setCurrentUserCi={setCurrentUserCi}
+          showToast={showToast}
+        />
+      )}
+
+      {isProfileModalOpen && (
+        <CustomerProfileModal
+          isOpen={isProfileModalOpen}
+          onClose={() => {
+            setIsProfileModalOpen(false);
+            setCheckoutAfterAuth(false);
+          }}
+          currentUser={currentUser}
+          customers={customers}
+          setCustomers={setCustomers}
+          setCurrentUserCi={setCurrentUserCi}
+          sales={sales}
+          checkoutAfterAuth={checkoutAfterAuth}
+          onAuthSuccessAndCheckout={(customer) => {
+            setIsProfileModalOpen(false);
+            setCheckoutAfterAuth(false);
+            completeOnlineOrder(customer);
+          }}
+          showToast={showToast}
+          brandPrimary={brandPrimary}
+        />
+      )}
+
+      {whatsappConfirmModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl space-y-4">
+            <div className="flex items-center gap-3">
+              <div
+                style={{ backgroundColor: `${brandPrimary}20`, color: brandPrimary }}
+                className="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0"
+              >
+                <CheckCircle2 className="w-7 h-7" />
+              </div>
+              <div>
+                <h3 className="text-lg font-extrabold text-slate-900">
+                  ¡Pedido {whatsappConfirmModal.sale.id} Registrado!
+                </h3>
+                <p className="text-xs text-slate-500">
+                  {whatsappConfirmModal.sale.paymentMethod.toLowerCase().includes('efectivo')
+                    ? 'Modalidad Efectivo: Envía el resumen por WhatsApp para coordinar la entrega.'
+                    : 'Pago Digital: Envía el resumen y tu comprobante por WhatsApp para despachar tu delivery.'}
+                </p>
+              </div>
+            </div>
+
+            <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3.5 max-h-60 overflow-y-auto">
+              <pre className="text-xs text-slate-700 whitespace-pre-wrap font-sans leading-relaxed">
+                {whatsappConfirmModal.message}
+              </pre>
+            </div>
+
+            <div className="flex flex-col sm:flex-row gap-2.5 pt-2">
+              <a
+                href={whatsappConfirmModal.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => setWhatsappConfirmModal(null)}
+                style={{ backgroundColor: brandPrimary }}
+                className="flex-1 py-3 px-4 rounded-xl hover:opacity-95 text-white font-extrabold text-sm flex items-center justify-center gap-2 shadow-md transition"
+              >
+                <MessageCircle className="w-5 h-5" />
+                Abrir WhatsApp Ahora
+              </a>
+              <button
+                onClick={() => {
+                  navigator.clipboard?.writeText(whatsappConfirmModal.message);
+                  setCopiedMsg(true);
+                  setTimeout(() => setCopiedMsg(false), 2000);
+                  showToast('Resumen copiado al portapapeles');
+                }}
+                className="py-3 px-4 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-sm flex items-center justify-center gap-1.5 cursor-pointer"
+              >
+                {copiedMsg ? (
+                  <Check className="w-4 h-4 text-emerald-600" />
+                ) : (
+                  <Copy className="w-4 h-4" />
+                )}
+                {copiedMsg ? 'Copiado' : 'Copiar'}
+              </button>
+              <button
+                onClick={() => setWhatsappConfirmModal(null)}
+                className="py-3 px-4 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 font-semibold text-sm cursor-pointer"
+              >
+                Cerrar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showPinModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4">
+          <div className="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-xl bg-slate-900 text-amber-400 flex items-center justify-center">
+                  <ShieldCheck className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-slate-900">Acceso Administrativo</h3>
+                  <p className="text-xs text-slate-500">POS Caja, Inventario y Marca</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowPinModal(false)}
+                className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleVerifyPin} className="space-y-3">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Ingresa tu PIN o Contraseña de Administrador
+                </label>
+                <div className="relative">
+                  <input
+                    type={showPinText ? 'text' : 'password'}
+                    maxLength={32}
+                    value={pinInput}
+                    onChange={(e) => setPinInput(e.target.value)}
+                    placeholder="Contraseña segura..."
+                    autoFocus
+                    className="w-full pl-4 pr-11 py-2.5 border border-slate-300 rounded-xl text-base font-bold tracking-wide focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPinText(!showPinText)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 cursor-pointer"
+                    title={showPinText ? 'Ocultar' : 'Mostrar'}
+                  >
+                    {showPinText ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+                <p className="text-[11px] text-slate-400 mt-1.5 text-center">
+                  PIN inicial por defecto:{' '}
+                  <strong className="text-slate-600">{settings.adminPin}</strong>
+                </p>
+              </div>
+              {pinError && (
+                <p className="text-xs text-red-600 font-semibold text-center">{pinError}</p>
+              )}
+              <button
+                type="submit"
+                className="w-full py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl text-sm transition cursor-pointer"
+              >
+                Desbloquear Panel Admin
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CustomerSupportModal({
+  onClose,
+  settings,
+  currentUser,
+  customers,
+  setCustomers,
+  setCurrentUserCi,
+  showToast,
+}) {
+  const [reason, setReason] = useState('Consulta General sobre Productos');
+  const [customMessage, setCustomMessage] = useState('');
+  const [guestData, setGuestData] = useState({
+    firstName: '',
+    lastName: '',
+    ci: '',
+    phone: '',
+    address: '',
+  });
+  const [errorMsg, setErrorMsg] = useState('');
+
+  const brandPrimary = settings.primaryColor || '#059669';
+
+  const handleSendSupportWhatsApp = (e) => {
+    e.preventDefault();
+    setErrorMsg('');
+
+    let clientProfile = currentUser;
+
+    if (!clientProfile) {
+      if (
+        !guestData.firstName.trim() ||
+        !guestData.lastName.trim() ||
+        !guestData.ci.trim() ||
+        !guestData.phone.trim() ||
+        !guestData.address.trim()
+      ) {
+        setErrorMsg(
+          'Por favor completa tus datos para que nuestro equipo te identifique al recibir tu mensaje.'
+        );
+        return;
+      }
+
+      const cleanCi = guestData.ci.trim().toUpperCase();
+      const formattedCi = /^[VEJ]-/.test(cleanCi) ? cleanCi : `V-${cleanCi.replace(/\D/g, '')}`;
+
+      clientProfile = {
+        ci: formattedCi,
+        firstName: guestData.firstName.trim(),
+        lastName: guestData.lastName.trim(),
+        phone: guestData.phone.trim(),
+        address: guestData.address.trim(),
+        photo: null,
+        createdAt: new Date().toISOString(),
+      };
+
+      setCustomers((prev) => {
+        const exists = prev.some((c) => c.ci === formattedCi);
+        return exists
+          ? prev.map((c) => (c.ci === formattedCi ? clientProfile : c))
+          : [clientProfile, ...prev];
+      });
+      setCurrentUserCi(formattedCi);
+      showToast('Datos guardados y redirigiendo a WhatsApp');
+    }
+
+    const supportText =
+      `💬 *ATENCIÓN AL CLIENTE - ${settings.storeName.toUpperCase()}*\n\n` +
+      `👤 *DATOS DEL CLIENTE:*\n` +
+      `• *Nombre:* ${clientProfile.firstName} ${clientProfile.lastName}\n` +
+      `• *Cédula (CI):* ${clientProfile.ci}\n` +
+      `• *Teléfono:* ${clientProfile.phone}\n` +
+      `• *Ubicación:* ${clientProfile.address}\n\n` +
+      `📌 *Motivo:* ${reason}\n` +
+      `📝 *Mensaje:* ${
+        customMessage.trim() || 'Hola, necesito atención personalizada por favor.'
+      }`;
+
+    const cleanPhone = settings.whatsappNumber.replace(/\D/g, '');
+    const url = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(supportText)}`;
+    window.open(url, '_blank', 'noopener,noreferrer');
+    onClose();
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 overflow-y-auto">
+      <div className="bg-white rounded-3xl max-w-lg w-full shadow-2xl overflow-hidden my-8">
+        <div
+          style={{ backgroundColor: brandPrimary }}
+          className="px-6 py-4 text-white flex items-center justify-between"
+        >
+          <div className="flex items-center gap-2.5">
+            <Headphones className="w-6 h-6" />
+            <div>
+              <h3 className="font-extrabold text-lg">Atención al Cliente</h3>
+              <p className="text-xs text-white/85">
+                Escríbenos directo al WhatsApp con tus datos registrados
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-2 rounded-xl bg-black/20 hover:bg-black/30 text-white cursor-pointer"
+          >
+            ✕
+          </button>
+        </div>
+
+        <form onSubmit={handleSendSupportWhatsApp} className="p-6 space-y-4 text-xs">
+          {errorMsg && (
+            <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 font-semibold">
+              {errorMsg}
+            </div>
+          )}
+
+          {currentUser ? (
+            <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 space-y-1">
+              <span
+                style={{ color: brandPrimary }}
+                className="text-[11px] font-extrabold uppercase block"
+              >
+                ✓ Datos que se adjuntarán automáticamente:
+              </span>
+              <p className="font-bold text-slate-900 text-sm">
+                {currentUser.firstName} {currentUser.lastName} ({currentUser.ci})
+              </p>
+              <p className="text-slate-600">
+                Tel: {currentUser.phone} • {currentUser.address}
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-3 bg-slate-50 p-3.5 rounded-2xl border border-slate-200">
+              <p className="font-bold text-slate-700">
+                Completa tus datos una sola vez para identificarte en WhatsApp:
+              </p>
+              <div className="grid grid-cols-2 gap-2.5">
+                <input
+                  type="text"
+                  required
+                  placeholder="Nombre *"
+                  value={guestData.firstName}
+                  onChange={(e) => setGuestData({ ...guestData, firstName: e.target.value })}
+                  className="px-3 py-2 border border-slate-300 rounded-xl bg-white"
+                />
+                <input
+                  type="text"
+                  required
+                  placeholder="Apellido *"
+                  value={guestData.lastName}
+                  onChange={(e) => setGuestData({ ...guestData, lastName: e.target.value })}
+                  className="px-3 py-2 border border-slate-300 rounded-xl bg-white"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-2.5">
+                <input
+                  type="text"
+                  required
+                  placeholder="Cédula (Ej: V-12345678) *"
+                  value={guestData.ci}
+                  onChange={(e) => setGuestData({ ...guestData, ci: e.target.value })}
+                  className="px-3 py-2 border border-slate-300 rounded-xl bg-white"
+                />
+                <input
+                  type="tel"
+                  required
+                  placeholder="Teléfono *"
+                  value={guestData.phone}
+                  onChange={(e) => setGuestData({ ...guestData, phone: e.target.value })}
+                  className="px-3 py-2 border border-slate-300 rounded-xl bg-white"
+                />
+              </div>
+              <input
+                type="text"
+                required
+                placeholder="Dirección / Ubicación exacta *"
+                value={guestData.address}
+                onChange={(e) => setGuestData({ ...guestData, address: e.target.value })}
+                className="w-full px-3 py-2 border border-slate-300 rounded-xl bg-white"
+              />
+            </div>
+          )}
+
+          <div>
+            <label className="block font-bold text-slate-700 mb-1">Motivo de Contacto</label>
+            <select
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              className="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl font-semibold bg-white"
+            >
+              <option value="Consulta General sobre Productos">
+                Consulta General sobre Productos
+              </option>
+              <option value="Estado de mi Pedido / Delivery">
+                Estado de mi Pedido / Delivery
+              </option>
+              <option value="Solicitud de Producto o Compra al Mayor">
+                Solicitud de Producto o Compra al Mayor
+              </option>
+              <option value="Soporte / Reclamo">Soporte / Reclamo</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block font-bold text-slate-700 mb-1">
+              Tu Mensaje (Opcional)
+            </label>
+            <textarea
+              rows={3}
+              value={customMessage}
+              onChange={(e) => setCustomMessage(e.target.value)}
+              placeholder="Escribe aquí tu duda o solicitud..."
+              className="w-full px-3.5 py-2 border border-slate-300 rounded-xl"
+            />
+          </div>
+
+          <button
+            type="submit"
+            style={{ backgroundColor: brandPrimary }}
+            className="w-full py-3.5 rounded-2xl text-white font-extrabold text-sm shadow-md hover:opacity-95 flex items-center justify-center gap-2 cursor-pointer"
+          >
+            <MessageCircle className="w-5 h-5" />
+            Escribir al WhatsApp con mis Datos
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+function CustomerProfileModal({
+  onClose,
+  currentUser,
+  customers,
+  setCustomers,
+  setCurrentUserCi,
+  sales,
+  checkoutAfterAuth,
+  onAuthSuccessAndCheckout,
+  showToast,
+  brandPrimary = '#059669',
+}) {
+  const [authTab, setAuthTab] = useState('REGISTER');
+  const [loginCi, setLoginCi] = useState('');
+  const [formData, setFormData] = useState({
+    firstName: currentUser?.firstName || '',
+    lastName: currentUser?.lastName || '',
+    ci: currentUser?.ci || '',
+    phone: currentUser?.phone || '',
+    address: currentUser?.address || '',
+    photo: currentUser?.photo || null,
+  });
+  const [errorMsg, setErrorMsg] = useState('');
+  const fileInputRef = useRef(null);
+
+  const handlePhotoUpload = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      setErrorMsg('Por favor selecciona una imagen válida (JPG o PNG).');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      setFormData((prev) => ({ ...prev, photo: reader.result }));
+      showToast('Foto cargada correctamente');
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleRegisterOrUpdate = (e) => {
+    e.preventDefault();
+    setErrorMsg('');
+
+    const cleanCi = formData.ci.trim().toUpperCase();
+    if (!formData.firstName.trim() || !formData.lastName.trim() || !cleanCi || !formData.phone.trim() || !formData.address.trim()) {
+      setErrorMsg('Todos los campos son obligatorios para coordinar tu entrega.');
+      return;
+    }
+
+    const formattedCi = /^[VEJ]-/.test(cleanCi) ? cleanCi : `V-${cleanCi.replace(/\D/g, '')}`;
+
+    const customerRecord = {
+      ci: formattedCi,
+      firstName: formData.firstName.trim(),
+      lastName: formData.lastName.trim(),
+      phone: formData.phone.trim(),
+      address: formData.address.trim(),
+      photo: formData.photo,
+      createdAt: currentUser?.createdAt || new Date().toISOString(),
+    };
+
+    setCustomers((prev) => {
+      const exists = prev.some((c) => c.ci === formattedCi);
+      if (exists) {
+        return prev.map((c) => (c.ci === formattedCi ? customerRecord : c));
+      }
+      return [customerRecord, ...prev];
+    });
+
+    setCurrentUserCi(formattedCi);
+    showToast(currentUser ? 'Perfil actualizado' : `¡Bienvenido ${customerRecord.firstName}!`);
+
+    if (checkoutAfterAuth) {
+      onAuthSuccessAndCheckout(customerRecord);
+    } else if (!currentUser) {
+      onClose();
+    }
+  };
+
+  const handleLoginByCi = (e) => {
+    e.preventDefault();
+    setErrorMsg('');
+    const clean = loginCi.trim().toUpperCase();
+    const formatted = /^[VEJ]-/.test(clean) ? clean : `V-${clean.replace(/\D/g, '')}`;
+    const found = customers.find((c) => c.ci === formatted);
+
+    if (!found) {
+      setErrorMsg('No encontramos esa Cédula registrada. Regístrate en 30 segundos en la pestaña "Soy Nuevo".');
+      return;
+    }
+
+    setCurrentUserCi(found.ci);
+    showToast(`¡Hola de nuevo, ${found.firstName}!`);
+    if (checkoutAfterAuth) {
+      onAuthSuccessAndCheckout(found);
+    } else {
+      onClose();
+    }
+  };
+
+  const userSales = useMemo(() => {
+    if (!currentUser) return [];
+    return sales.filter((s) => s.customerCi === currentUser.ci);
+  }, [sales, currentUser]);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 overflow-y-auto">
+      <div className="bg-white rounded-3xl max-w-xl w-full shadow-2xl overflow-hidden my-8">
+        <div
+          style={{ backgroundColor: brandPrimary }}
+          className="px-6 py-4 text-white flex items-center justify-between"
+        >
+          <div>
+            <h3 className="font-extrabold text-lg">
+              {currentUser ? 'Mi Perfil de Cliente' : 'Registro e Ingreso Rápido'}
+            </h3>
+            <p className="text-xs text-white/85">
+              {checkoutAfterAuth
+                ? 'Completa tus datos una sola vez para enviar tu pedido'
+                : 'Tus datos quedan guardados para futuras compras'}
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-2 rounded-xl bg-black/20 hover:bg-black/30 text-white cursor-pointer"
+          >
+            ✕
+          </button>
+        </div>
+
+        <div className="p-6 max-h-[80vh] overflow-y-auto space-y-6">
+          {!currentUser && (
+            <div className="grid grid-cols-2 gap-2 p-1 bg-slate-100 rounded-xl">
+              <button
+                type="button"
+                onClick={() => {
+                  setAuthTab('REGISTER');
+                  setErrorMsg('');
+                }}
+                className={`py-2 rounded-lg text-xs font-extrabold transition cursor-pointer ${
+                  authTab === 'REGISTER'
+                    ? 'bg-white text-emerald-700 shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                Soy Nuevo (Registrarme)
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setAuthTab('LOGIN');
+                  setErrorMsg('');
+                }}
+                className={`py-2 rounded-lg text-xs font-extrabold transition cursor-pointer ${
+                  authTab === 'LOGIN'
+                    ? 'bg-white text-emerald-700 shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                Ya tengo cuenta (Ingresar)
+              </button>
+            </div>
+          )}
+
+          {errorMsg && (
+            <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs font-semibold">
+              {errorMsg}
+            </div>
+          )}
+
+          {!currentUser && authTab === 'LOGIN' ? (
+            <form onSubmit={handleLoginByCi} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Ingresa tu Cédula de Identidad (CI)
+                </label>
+                <input
+                  type="text"
+                  value={loginCi}
+                  onChange={(e) => setLoginCi(e.target.value)}
+                  placeholder="Ej: V-18456789"
+                  className="w-full px-4 py-3 border border-slate-300 rounded-xl text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                />
+                <p className="text-[11px] text-slate-400 mt-1">
+                  Prueba con: <strong>V-18456789</strong> o registra tu propia cédula.
+                </p>
+              </div>
+              <button
+                type="submit"
+                className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold rounded-xl text-sm shadow-md transition cursor-pointer"
+              >
+                Ingresar a mi Cuenta
+              </button>
+            </form>
+          ) : (
+            <form onSubmit={handleRegisterOrUpdate} className="space-y-4">
+              <div className="flex items-center gap-4 p-3 bg-slate-50 rounded-2xl border border-slate-200">
+                <div className="relative">
+                  {formData.photo ? (
+                    <img
+                      src={formData.photo}
+                      alt="Foto perfil"
+                      className="w-16 h-16 rounded-full object-cover border-2 border-emerald-500"
+                    />
+                  ) : (
+                    <div className="w-16 h-16 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-xl font-black">
+                      {formData.firstName ? formData.firstName[0].toUpperCase() : <User className="w-7 h-7" />}
+                    </div>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full bg-emerald-600 text-white flex items-center justify-center shadow hover:bg-emerald-700 cursor-pointer"
+                    title="Subir foto JPG"
+                  >
+                    <Camera className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+                <div className="flex-1">
+                  <p className="text-xs font-bold text-slate-800">Foto de Perfil (JPG / PNG)</p>
+                  <p className="text-[11px] text-slate-500">
+                    Opcional. Personaliza tu perfil de cliente en el abasto.
+                  </p>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    onChange={handlePhotoUpload}
+                    className="hidden"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="mt-1.5 text-xs font-bold text-emerald-700 hover:underline cursor-pointer"
+                  >
+                    Seleccionar archivo de imagen...
+                  </button>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Nombre *</label>
+                  <input
+                    type="text"
+                    required
+                    value={formData.firstName}
+                    onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
+                    placeholder="Ej: José"
+                    className="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Apellido *</label>
+                  <input
+                    type="text"
+                    required
+                    value={formData.lastName}
+                    onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
+                    placeholder="Ej: Pérez"
+                    className="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    Cédula de Identidad (CI) *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    disabled={Boolean(currentUser)}
+                    value={formData.ci}
+                    onChange={(e) => setFormData({ ...formData, ci: e.target.value })}
+                    placeholder="Ej: V-12345678"
+                    className="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-sm font-semibold disabled:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    Teléfono / WhatsApp *
+                  </label>
+                  <input
+                    type="tel"
+                    required
+                    value={formData.phone}
+                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                    placeholder="Ej: 0412-1234567"
+                    className="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Ubicación / Dirección Exacta de Entrega *
+                </label>
+                <textarea
+                  rows={2}
+                  required
+                  value={formData.address}
+                  onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                  placeholder="Sector, calle, número de casa/edificio y punto de referencia..."
+                  className="w-full px-3.5 py-2 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                />
+              </div>
+
+              <div className="flex items-center gap-2 pt-1">
+                <button
+                  type="submit"
+                  style={{ backgroundColor: brandPrimary }}
+                  className="flex-1 py-3 hover:opacity-95 text-white font-extrabold rounded-xl text-sm shadow-md transition cursor-pointer"
+                >
+                  {checkoutAfterAuth
+                    ? 'Guardar y Continuar a WhatsApp'
+                    : currentUser
+                    ? 'Guardar Cambios del Perfil'
+                    : 'Completar Registro'}
+                </button>
+                {currentUser && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCurrentUserCi(null);
+                      onClose();
+                      showToast('Sesión cerrada', 'info');
+                    }}
+                    className="px-4 py-3 bg-red-50 hover:bg-red-100 text-red-600 font-bold rounded-xl text-xs flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <LogOut className="w-4 h-4" />
+                    Salir
+                  </button>
+                )}
+              </div>
+            </form>
+          )}
+
+          {currentUser && (
+            <div className="pt-4 border-t border-slate-200 space-y-3">
+              <div className="flex items-center justify-between">
+                <h4 className="font-extrabold text-slate-800 text-sm flex items-center gap-1.5">
+                  <Receipt className="w-4 h-4 text-emerald-600" />
+                  Mi Historial de Compras ({userSales.length})
+                </h4>
+                <span className="text-xs font-bold text-emerald-700">
+                  Total acumulado:{' '}
+                  {formatUsd(userSales.reduce((acc, s) => acc + s.totalUsd, 0))}
+                </span>
+              </div>
+
+              {userSales.length === 0 ? (
+                <p className="text-xs text-slate-400 bg-slate-50 p-4 rounded-xl text-center">
+                  Aún no tienes compras registradas con tu cédula {currentUser.ci}.
+                </p>
+              ) : (
+                <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                  {userSales.map((sale) => (
+                    <div
+                      key={sale.id}
+                      className="p-3 rounded-xl border border-slate-200 bg-slate-50/70 flex items-center justify-between text-xs"
+                    >
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-extrabold text-slate-800">{sale.id}</span>
+                          <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-semibold text-[10px]">
+                            {sale.channel === 'ONLINE' ? 'Web / WhatsApp' : 'Tienda Física'}
+                          </span>
+                        </div>
+                        <p className="text-slate-500 mt-0.5">
+                          {new Date(sale.date).toLocaleDateString('es-VE', {
+                            day: '2-digit',
+                            month: 'short',
+                            year: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}{' '}
+                          • {sale.items.length} prod.
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <span className="font-extrabold text-emerald-700 text-sm block">
+                          {formatUsd(sale.totalUsd)}
+                        </span>
+                        <span className="text-slate-500">{formatBs(sale.totalBs)}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AdminPanel({
+  settings,
+  setSettings,
+  departments,
+  setDepartments,
+  products,
+  setProducts,
+  customers,
+  sales,
+  setSales,
+  cashMovements,
+  setCashMovements,
+  showToast,
+}) {
+  const [adminTab, setAdminTab] = useState('POS');
+
+  return (
+    <div className="flex-1 max-w-7xl w-full mx-auto px-4 py-6 space-y-6">
+      <div className="bg-white p-2 rounded-2xl border border-slate-200 shadow-xs flex flex-wrap gap-2">
+        {[
+          { id: 'POS', label: 'Caja Física (POS)', icon: CreditCard },
+          { id: 'INVENTORY', label: 'Inventario, Fotos y Rubros', icon: Package },
+          { id: 'CASH', label: 'Control de Caja', icon: Wallet },
+          { id: 'STATS', label: 'Ventas, Ganancias y Clientes', icon: BarChart3 },
+          { id: 'SETTINGS', label: 'Marca, Colores, Tasa y PIN', icon: Settings },
+        ].map((tab) => {
+          const Icon = tab.icon;
+          const active = adminTab === tab.id;
+          return (
+            <button
+              key={tab.id}
+              onClick={() => setAdminTab(tab.id)}
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition cursor-pointer ${
+                active
+                  ? 'bg-slate-900 text-white shadow-sm'
+                  : 'text-slate-600 hover:bg-slate-100'
+              }`}
+            >
+              <Icon className="w-4 h-4" />
+              {tab.label}
+            </button>
+          );
+        })}
+      </div>
+
+      {adminTab === 'POS' && (
+        <PosCashRegisterTab
+          settings={settings}
+          products={products}
+          setProducts={setProducts}
+          customers={customers}
+          setSales={setSales}
+          setCashMovements={setCashMovements}
+          showToast={showToast}
+        />
+      )}
+
+      {adminTab === 'INVENTORY' && (
+        <InventoryManagementTab
+          settings={settings}
+          departments={departments}
+          setDepartments={setDepartments}
+          products={products}
+          setProducts={setProducts}
+          showToast={showToast}
+        />
+      )}
+
+      {adminTab === 'CASH' && (
+        <CashControlTab
+          settings={settings}
+          cashMovements={cashMovements}
+          setCashMovements={setCashMovements}
+          showToast={showToast}
+        />
+      )}
+
+      {adminTab === 'STATS' && (
+        <AnalyticsAndCustomersTab
+          settings={settings}
+          sales={sales}
+          customers={customers}
+        />
+      )}
+
+      {adminTab === 'SETTINGS' && (
+        <StoreSettingsTab
+          settings={settings}
+          setSettings={setSettings}
+          showToast={showToast}
+        />
+      )}
+    </div>
+  );
+}
+
+function PosCashRegisterTab({
+  settings,
+  products,
+  setProducts,
+  customers,
+  setSales,
+  setCashMovements,
+  showToast,
+}) {
+  const [posSearch, setPosSearch] = useState('');
+  const [posCart, setPosCart] = useState([]);
+  const [selectedCi, setSelectedCi] = useState('GENERAL');
+  const [paymentMethod, setPaymentMethod] = useState('Efectivo Dólares ($)');
+
+  const filteredPosProducts = useMemo(() => {
+    return products.filter((p) =>
+      p.name.toLowerCase().includes(posSearch.toLowerCase())
+    );
+  }, [products, posSearch]);
+
+  const enrichedPosCart = useMemo(() => {
+    return posCart
+      .map((item) => {
+        const product = products.find((p) => p.id === item.productId);
+        if (!product) return null;
+        const isWholesale = item.qty >= product.wholesaleMinQty;
+        const unitPrice = isWholesale ? product.wholesalePrice : product.retailPrice;
+        return {
+          ...item,
+          product,
+          isWholesale,
+          unitPrice,
+          lineTotal: unitPrice * item.qty,
+        };
+      })
+      .filter(Boolean);
+  }, [posCart, products]);
+
+  const posTotalUsd = enrichedPosCart.reduce((acc, i) => acc + i.lineTotal, 0);
+  const posTotalBs = posTotalUsd * settings.exchangeRate;
+
+  const addPosItem = (productId, delta = 1) => {
+    const product = products.find((p) => p.id === productId);
+    if (!product || product.stock <= 0) return;
+
+    setPosCart((prev) => {
+      const existing = prev.find((i) => i.productId === productId);
+      const nextQty = (existing ? existing.qty : 0) + delta;
+      if (nextQty <= 0) return prev.filter((i) => i.productId !== productId);
+      if (nextQty > product.stock) {
+        showToast(`Stock máximo disponible: ${product.stock}`, 'warning');
+        return prev;
+      }
+      if (existing) {
+        return prev.map((i) => (i.productId === productId ? { ...i, qty: nextQty } : i));
+      }
+      return [...prev, { productId, qty: nextQty }];
+    });
+  };
+
+  const handleCompletePosSale = () => {
+    if (enrichedPosCart.length === 0) return;
+
+    const customerObj =
+      selectedCi === 'GENERAL'
+        ? null
+        : customers.find((c) => c.ci === selectedCi) || null;
+
+    const totalCostUsd = enrichedPosCart.reduce(
+      (acc, i) => acc + i.product.costPrice * i.qty,
+      0
+    );
+
+    const newSale = {
+      id: `POS-${Math.floor(1000 + Math.random() * 9000)}`,
+      date: new Date().toISOString(),
+      channel: 'POS',
+      customerCi: customerObj ? customerObj.ci : 'CLIENTE-GENERAL',
+      customerName: customerObj
+        ? `${customerObj.firstName} ${customerObj.lastName}`
+        : 'Cliente General (Mostrador)',
+      customerPhone: customerObj?.phone || 'N/A',
+      customerAddress: 'Tienda Física',
+      paymentMethod,
+      items: enrichedPosCart.map((i) => ({
+        productId: i.product.id,
+        name: i.product.name,
+        qty: i.qty,
+        unitPrice: i.unitPrice,
+        costPrice: i.product.costPrice,
+        isWholesale: i.isWholesale,
+      })),
+      subtotalUsd: posTotalUsd,
+      deliveryUsd: 0,
+      totalUsd: posTotalUsd,
+      totalCostUsd,
+      exchangeRate: settings.exchangeRate,
+      totalBs: posTotalBs,
+    };
+
+    setProducts((prev) =>
+      prev.map((p) => {
+        const sold = enrichedPosCart.find((i) => i.productId === p.id);
+        return sold ? { ...p, stock: Math.max(0, p.stock - sold.qty) } : p;
+      })
+    );
+
+    setSales((prev) => [newSale, ...prev]);
+    setCashMovements((prev) => [
+      {
+        id: `MOV-${Date.now()}`,
+        date: new Date().toISOString(),
+        type: 'IN',
+        category: `Venta Caja Física (${paymentMethod})`,
+        description: `Ticket ${newSale.id} - ${newSale.customerName}`,
+        amountUsd: posTotalUsd,
+        currencyUsed: paymentMethod.includes('Bs') ? 'BS' : 'USD',
+      },
+      ...prev,
+    ]);
+
+    setPosCart([]);
+    showToast(`Venta ${newSale.id} cobrada (${formatUsd(posTotalUsd)}) e inventario descontado`);
+  };
+
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+      <div className="lg:col-span-7 bg-white rounded-3xl border border-slate-200 p-5 space-y-4 shadow-xs">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-extrabold text-slate-900">Punto de Venta (Mostrador)</h2>
+            <p className="text-xs text-slate-500">
+              Selecciona productos para facturar en caja física
+            </p>
+          </div>
+          <div className="relative sm:w-64">
+            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              value={posSearch}
+              onChange={(e) => setPosSearch(e.target.value)}
+              placeholder="Buscar producto..."
+              className="w-full pl-9 pr-3 py-2 bg-slate-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+            />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[540px] overflow-y-auto pr-1">
+          {filteredPosProducts.map((p) => (
+            <button
+              key={p.id}
+              onClick={() => addPosItem(p.id, 1)}
+              disabled={p.stock <= 0}
+              className="p-3 rounded-2xl border border-slate-200 hover:border-emerald-500 hover:bg-emerald-50/40 disabled:opacity-40 text-left flex items-center gap-3 transition cursor-pointer"
+            >
+              {p.image ? (
+                <img
+                  src={p.image}
+                  alt={p.name}
+                  className="w-11 h-11 rounded-xl object-cover border border-slate-200 shrink-0"
+                />
+              ) : (
+                <span className="text-3xl w-11 text-center shrink-0">{p.emoji}</span>
+              )}
+              <div className="flex-1 min-w-0">
+                <p className="font-bold text-slate-800 text-sm truncate">{p.name}</p>
+                <div className="flex items-center justify-between mt-1">
+                  <span className="text-xs font-extrabold text-emerald-700">
+                    {formatUsd(p.retailPrice)}{' '}
+                    <span className="font-normal text-slate-400">
+                      (Mayor: {formatUsd(p.wholesalePrice)})
+                    </span>
+                  </span>
+                  <span className="text-[11px] font-semibold text-slate-500">
+                    Stock: {p.stock}
+                  </span>
+                </div>
+              </div>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="lg:col-span-5 bg-white rounded-3xl border border-slate-200 p-5 flex flex-col justify-between shadow-xs space-y-4">
+        <div className="space-y-4">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+            <h3 className="font-extrabold text-slate-900 flex items-center gap-2">
+              <Receipt className="w-5 h-5 text-emerald-600" />
+              Ticket de Venta Actual
+            </h3>
+            {posCart.length > 0 && (
+              <button
+                onClick={() => setPosCart([])}
+                className="text-xs text-red-600 font-bold hover:underline cursor-pointer"
+              >
+                Limpiar
+              </button>
+            )}
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+            <div>
+              <label className="block text-[11px] font-bold text-slate-600 mb-1">
+                Cliente (Asociar CI)
+              </label>
+              <select
+                value={selectedCi}
+                onChange={(e) => setSelectedCi(e.target.value)}
+                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              >
+                <option value="GENERAL">Cliente General (Mostrador)</option>
+                {customers.map((c) => (
+                  <option key={c.ci} value={c.ci}>
+                    {c.ci} - {c.firstName} {c.lastName}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-[11px] font-bold text-slate-600 mb-1">
+                Método de Pago
+              </label>
+              <select
+                value={paymentMethod}
+                onChange={(e) => setPaymentMethod(e.target.value)}
+                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              >
+                <option value="Efectivo Dólares ($)">Efectivo Dólares ($)</option>
+                <option value="Pago Móvil Bs.">Pago Móvil Bs.</option>
+                <option value="Punto de Venta Bs.">Punto de Venta Bs.</option>
+                <option value="Biopago / Efectivo Bs.">Biopago / Efectivo Bs.</option>
+                <option value="Zelle / Binance ($)">Zelle / Binance ($)</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+            {enrichedPosCart.length === 0 ? (
+              <div className="py-12 text-center text-xs text-slate-400">
+                Haz clic en los productos de la izquierda para agregarlos al ticket.
+              </div>
+            ) : (
+              enrichedPosCart.map((item) => (
+                <div
+                  key={item.productId}
+                  className="p-2.5 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between gap-2"
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-bold text-slate-800 truncate">{item.product.name}</p>
+                    <p className="text-[11px] text-slate-500">
+                      {formatUsd(item.unitPrice)} c/u{' '}
+                      {item.isWholesale && (
+                        <span className="text-emerald-700 font-bold">(Mayor)</span>
+                      )}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      onClick={() => addPosItem(item.productId, -1)}
+                      className="w-6 h-6 rounded bg-white border border-slate-200 flex items-center justify-center text-xs font-bold cursor-pointer"
+                    >
+                      -
+                    </button>
+                    <span className="w-6 text-center text-xs font-extrabold">{item.qty}</span>
+                    <button
+                      onClick={() => addPosItem(item.productId, 1)}
+                      className="w-6 h-6 rounded bg-emerald-600 text-white flex items-center justify-center text-xs font-bold cursor-pointer"
+                    >
+                      +
+                    </button>
+                  </div>
+                  <div className="text-right w-16">
+                    <span className="text-xs font-extrabold text-slate-900">
+                      {formatUsd(item.lineTotal)}
+                    </span>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+
+        <div className="pt-4 border-t border-slate-200 space-y-3">
+          <div className="bg-slate-900 text-white p-4 rounded-2xl flex items-center justify-between">
+            <div>
+              <span className="text-xs text-slate-400 block">TOTAL A COBRAR</span>
+              <span className="text-2xl font-black text-emerald-400">
+                {formatUsd(posTotalUsd)}
+              </span>
+            </div>
+            <div className="text-right">
+              <span className="text-xs text-slate-400 block">EN BOLÍVARES</span>
+              <span className="text-lg font-extrabold text-amber-300">
+                {formatBs(posTotalBs)}
+              </span>
+            </div>
+          </div>
+
+          <button
+            onClick={handleCompletePosSale}
+            disabled={enrichedPosCart.length === 0}
+            className="w-full py-3.5 rounded-2xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 text-white font-extrabold text-sm shadow-lg transition cursor-pointer flex items-center justify-center gap-2"
+          >
+            <CheckCircle2 className="w-5 h-5" />
+            Cobrar y Descontar Inventario
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function InventoryManagementTab({
+  settings,
+  departments,
+  setDepartments,
+  products,
+  setProducts,
+  showToast,
+}) {
+  const [editingProduct, setEditingProduct] = useState(null);
+  const [invSearch, setInvSearch] = useState('');
+  const [newDeptName, setNewDeptName] = useState('');
+  const [newDeptEmoji, setNewDeptEmoji] = useState('📦');
+  const productPhotoRef = useRef(null);
+
+  const filteredInv = products.filter((p) =>
+    p.name.toLowerCase().includes(invSearch.toLowerCase())
+  );
+
+  const handleAddDepartment = (e) => {
+    e.preventDefault();
+    const trimmed = newDeptName.trim();
+    if (!trimmed) return;
+    if (departments.some((d) => d.name.toLowerCase() === trimmed.toLowerCase())) {
+      showToast('Ese departamento ya existe', 'warning');
+      return;
+    }
+    setDepartments((prev) => [
+      ...prev,
+      { id: `dept-${Date.now()}`, name: trimmed, emoji: newDeptEmoji || '📦' },
+    ]);
+    setNewDeptName('');
+    setNewDeptEmoji('📦');
+    showToast(`Departamento "${trimmed}" agregado`);
+  };
+
+  const handleDeleteDepartment = (dept) => {
+    if (departments.length <= 1) {
+      showToast('Debe existir al menos un departamento activo', 'warning');
+      return;
+    }
+    const fallbackDept = departments.find((d) => d.id !== dept.id)?.name || 'General';
+    setProducts((prev) =>
+      prev.map((p) => (p.department === dept.name ? { ...p, department: fallbackDept } : p))
+    );
+    setDepartments((prev) => prev.filter((d) => d.id !== dept.id));
+    showToast(`Departamento "${dept.name}" eliminado`);
+  };
+
+  const openNewProductModal = () => {
+    setEditingProduct({
+      id: `prod-${Date.now()}`,
+      name: '',
+      department: departments[0]?.name || 'Víveres',
+      emoji: '📦',
+      image: null,
+      costPrice: 1.0,
+      retailPrice: 1.4,
+      wholesalePrice: 1.2,
+      wholesaleMinQty: 5,
+      stock: 20,
+      isOffer: false,
+      unit: 'Unidad',
+      isNew: true,
+    });
+  };
+
+  const handleProductImageUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const compressed = await compressImageFile(file, 450, 0.8);
+      setEditingProduct((prev) => ({ ...prev, image: compressed }));
+      showToast('Foto JPG del producto cargada');
+    } catch (err) {
+      showToast('Error al procesar la imagen del producto', 'error');
+    }
+  };
+
+  const handleSaveProduct = (e) => {
+    e.preventDefault();
+    if (!editingProduct.name.trim()) return;
+
+    const cleanProduct = {
+      id: editingProduct.id,
+      name: editingProduct.name.trim(),
+      department: editingProduct.department,
+      emoji: editingProduct.emoji || '📦',
+      image: editingProduct.image || null,
+      costPrice: Number(editingProduct.costPrice),
+      retailPrice: Number(editingProduct.retailPrice),
+      wholesalePrice: Number(editingProduct.wholesalePrice),
+      wholesaleMinQty: Math.max(2, Number(editingProduct.wholesaleMinQty)),
+      stock: Math.max(0, Number(editingProduct.stock)),
+      isOffer: Boolean(editingProduct.isOffer),
+      unit: editingProduct.unit || 'Unidad',
+    };
+
+    setProducts((prev) => {
+      const exists = prev.some((p) => p.id === cleanProduct.id);
+      if (exists) {
+        return prev.map((p) => (p.id === cleanProduct.id ? cleanProduct : p));
+      }
+      return [cleanProduct, ...prev];
+    });
+
+    setEditingProduct(null);
+    showToast('Producto guardado y actualizado en tiempo real');
+  };
+
+  const toggleOfferQuick = (id) => {
+    setProducts((prev) =>
+      prev.map((p) => (p.id === id ? { ...p, isOffer: !p.isOffer } : p))
+    );
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="bg-white rounded-3xl border border-slate-200 p-5 shadow-xs space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div>
+            <h3 className="text-base font-extrabold text-slate-900 flex items-center gap-2">
+              <FolderPlus className="w-5 h-5 text-emerald-600" />
+              Departamentos y Rubros de la Tienda
+            </h3>
+            <p className="text-xs text-slate-500">
+              Agrega o quita departamentos fácilmente si trabajas con otros rubros
+            </p>
+          </div>
+        </div>
+
+        <form onSubmit={handleAddDepartment} className="flex flex-wrap items-center gap-2">
+          <input
+            type="text"
+            maxLength={4}
+            value={newDeptEmoji}
+            onChange={(e) => setNewDeptEmoji(e.target.value)}
+            placeholder="📦"
+            className="w-14 px-2 py-2 border border-slate-300 rounded-xl text-center text-base"
+            title="Ícono o Emoji"
+          />
+          <input
+            type="text"
+            value={newDeptName}
+            onChange={(e) => setNewDeptName(e.target.value)}
+            placeholder="Nombre del nuevo departamento (Ej: Ferretería, Farmacia...)"
+            className="flex-1 min-w-[220px] px-3.5 py-2 border border-slate-300 rounded-xl text-xs font-semibold"
+          />
+          <button
+            type="submit"
+            className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl flex items-center gap-1.5 cursor-pointer"
+          >
+            <Plus className="w-4 h-4" />
+            Agregar Departamento
+          </button>
+        </form>
+
+        <div className="flex flex-wrap gap-2">
+          {departments.map((dept) => (
+            <span
+              key={dept.id}
+              className="inline-flex items-center gap-2 bg-slate-100 border border-slate-200 px-3 py-1.5 rounded-xl text-xs font-bold text-slate-800"
+            >
+              <span>{dept.emoji}</span>
+              <span>{dept.name}</span>
+              <button
+                type="button"
+                onClick={() => handleDeleteDepartment(dept)}
+                className="text-slate-400 hover:text-red-600 transition cursor-pointer"
+                title={`Eliminar ${dept.name}`}
+              >
+                ✕
+              </button>
+            </span>
+          ))}
+        </div>
+      </div>
+
+      <div className="bg-white rounded-3xl border border-slate-200 p-5 shadow-xs space-y-5">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-extrabold text-slate-900">
+              Gestión de Inventario, Fotos y Precios
+            </h2>
+            <p className="text-xs text-slate-500">
+              Sube fotos JPG a tus productos, edita precios al detal, mayor, costos y stock
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <div className="relative">
+              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                value={invSearch}
+                onChange={(e) => setInvSearch(e.target.value)}
+                placeholder="Filtrar inventario..."
+                className="pl-9 pr-3 py-2 bg-slate-100 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              />
+            </div>
+            <button
+              onClick={openNewProductModal}
+              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl flex items-center gap-1.5 shadow-sm cursor-pointer shrink-0"
+            >
+              <Plus className="w-4 h-4" />
+              Nuevo Producto
+            </button>
+          </div>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="border-b border-slate-200 text-[11px] font-extrabold uppercase text-slate-500 bg-slate-50">
+                <th className="py-3 px-3 rounded-tl-xl">Producto</th>
+                <th className="py-3 px-3">Costo ($)</th>
+                <th className="py-3 px-3">Venta Detal</th>
+                <th className="py-3 px-3">Venta Mayor</th>
+                <th className="py-3 px-3">Ganancia/Und</th>
+                <th className="py-3 px-3">Stock</th>
+                <th className="py-3 px-3">Oferta</th>
+                <th className="py-3 px-3 text-right rounded-tr-xl">Editar</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 text-xs">
+              {filteredInv.map((p) => {
+                const profitRetail = p.retailPrice - p.costPrice;
+                return (
+                  <tr key={p.id} className="hover:bg-slate-50/80 transition">
+                    <td className="py-3 px-3">
+                      <div className="flex items-center gap-2.5">
+                        {p.image ? (
+                          <img
+                            src={p.image}
+                            alt={p.name}
+                            className="w-10 h-10 rounded-xl object-cover border border-slate-200 shrink-0"
+                          />
+                        ) : (
+                          <span className="text-2xl w-10 text-center shrink-0">{p.emoji}</span>
+                        )}
+                        <div>
+                          <p className="font-bold text-slate-900">{p.name}</p>
+                          <span className="text-[11px] text-slate-400">{p.department}</span>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="py-3 px-3 font-semibold text-slate-600">
+                      {formatUsd(p.costPrice)}
+                    </td>
+                    <td className="py-3 px-3">
+                      <span className="font-extrabold text-slate-900 block">
+                        {formatUsd(p.retailPrice)}
+                      </span>
+                      <span className="text-[10px] text-slate-400">
+                        {formatBs(p.retailPrice * settings.exchangeRate)}
+                      </span>
+                    </td>
+                    <td className="py-3 px-3">
+                      <span className="font-extrabold text-emerald-700 block">
+                        {formatUsd(p.wholesalePrice)}
+                      </span>
+                      <span className="text-[10px] text-slate-400">
+                        Desde {p.wholesaleMinQty} und
+                      </span>
+                    </td>
+                    <td className="py-3 px-3 font-bold text-emerald-600">
+                      +{formatUsd(profitRetail)}
+                    </td>
+                    <td className="py-3 px-3">
+                      <span
+                        className={`px-2.5 py-1 rounded-full font-extrabold text-[11px] ${
+                          p.stock === 0
+                            ? 'bg-red-100 text-red-700'
+                            : p.stock <= 10
+                            ? 'bg-amber-100 text-amber-800'
+                            : 'bg-emerald-100 text-emerald-800'
+                        }`}
+                      >
+                        {p.stock} und
+                      </span>
+                    </td>
+                    <td className="py-3 px-3">
+                      <button
+                        onClick={() => toggleOfferQuick(p.id)}
+                        className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition cursor-pointer ${
+                          p.isOffer
+                            ? 'bg-amber-500 text-white'
+                            : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+                        }`}
+                      >
+                        {p.isOffer ? 'Activa' : 'Normal'}
+                      </button>
+                    </td>
+                    <td className="py-3 px-3 text-right">
+                      <button
+                        onClick={() => setEditingProduct(p)}
+                        className="p-2 rounded-xl bg-slate-100 hover:bg-emerald-100 text-slate-700 hover:text-emerald-700 transition cursor-pointer"
+                        title="Editar Producto"
+                      >
+                        <Edit3 className="w-4 h-4" />
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {editingProduct && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 overflow-y-auto">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl space-y-4 my-8">
+            <div className="flex items-center justify-between">
+              <h3 className="font-extrabold text-slate-900 text-lg">
+                {editingProduct.isNew ? 'Agregar Nuevo Producto' : 'Editar Producto y Foto'}
+              </h3>
+              <button
+                onClick={() => setEditingProduct(null)}
+                className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-500 cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveProduct} className="space-y-3 text-xs">
+              <div className="flex items-center gap-4 p-3 rounded-2xl bg-slate-50 border border-slate-200">
+                <div className="w-16 h-16 rounded-2xl bg-white border border-slate-200 flex items-center justify-center overflow-hidden shrink-0">
+                  {editingProduct.image ? (
+                    <img
+                      src={editingProduct.image}
+                      alt="Vista previa"
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <span className="text-3xl">{editingProduct.emoji || '📦'}</span>
+                  )}
+                </div>
+                <div className="flex-1 space-y-1">
+                  <p className="font-bold text-slate-800">Fotografía del Producto (JPG/PNG)</p>
+                  <p className="text-[11px] text-slate-500">
+                    Sube una foto real para mostrar en el catálogo o usa un ícono.
+                  </p>
+                  <input
+                    ref={productPhotoRef}
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    onChange={handleProductImageUpload}
+                    className="hidden"
+                  />
+                  <div className="flex items-center gap-2 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => productPhotoRef.current?.click()}
+                      className="px-3 py-1.5 rounded-lg bg-emerald-600 text-white font-bold hover:bg-emerald-700 cursor-pointer inline-flex items-center gap-1"
+                    >
+                      <Camera className="w-3.5 h-3.5" />
+                      Subir Foto JPG
+                    </button>
+                    {editingProduct.image && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setEditingProduct({ ...editingProduct, image: null })
+                        }
+                        className="px-2.5 py-1.5 rounded-lg bg-red-50 text-red-600 font-bold hover:bg-red-100 cursor-pointer"
+                      >
+                        Quitar Foto
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-4 gap-3">
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Emoji Respaldo</label>
+                  <input
+                    type="text"
+                    value={editingProduct.emoji}
+                    onChange={(e) =>
+                      setEditingProduct({ ...editingProduct, emoji: e.target.value })
+                    }
+                    className="w-full px-3 py-2 border border-slate-300 rounded-xl text-center text-xl"
+                  />
+                </div>
+                <div className="col-span-3">
+                  <label className="block font-bold text-slate-700 mb-1">
+                    Nombre del Producto *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={editingProduct.name}
+                    onChange={(e) =>
+                      setEditingProduct({ ...editingProduct, name: e.target.value })
+                    }
+                    placeholder="Ej: Pasta Larga Primor 1Kg"
+                    className="w-full px-3 py-2.5 border border-slate-300 rounded-xl text-sm"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Departamento</label>
+                  <select
+                    value={editingProduct.department}
+                    onChange={(e) =>
+                      setEditingProduct({ ...editingProduct, department: e.target.value })
+                    }
+                    className="w-full px-3 py-2.5 border border-slate-300 rounded-xl bg-white font-semibold"
+                  >
+                    {departments.map((d) => (
+                      <option key={d.id} value={d.name}>
+                        {d.emoji} {d.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Presentación</label>
+                  <input
+                    type="text"
+                    value={editingProduct.unit}
+                    onChange={(e) =>
+                      setEditingProduct({ ...editingProduct, unit: e.target.value })
+                    }
+                    placeholder="Ej: Paquete 1Kg"
+                    className="w-full px-3 py-2.5 border border-slate-300 rounded-xl"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-3 bg-slate-50 p-3 rounded-2xl border border-slate-200">
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Costo Compra ($)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    required
+                    value={editingProduct.costPrice}
+                    onChange={(e) =>
+                      setEditingProduct({ ...editingProduct, costPrice: e.target.value })
+                    }
+                    className="w-full px-3 py-2 border border-slate-300 rounded-xl bg-white font-bold"
+                  />
+                </div>
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Precio Detal ($)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    required
+                    value={editingProduct.retailPrice}
+                    onChange={(e) =>
+                      setEditingProduct({ ...editingProduct, retailPrice: e.target.value })
+                    }
+                    className="w-full px-3 py-2 border border-slate-300 rounded-xl bg-white font-bold text-slate-900"
+                  />
+                </div>
+                <div>
+                  <label className="block font-bold text-emerald-700 mb-1">
+                    Precio Mayor ($)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    required
+                    value={editingProduct.wholesalePrice}
+                    onChange={(e) =>
+                      setEditingProduct({ ...editingProduct, wholesalePrice: e.target.value })
+                    }
+                    className="w-full px-3 py-2 border border-emerald-300 rounded-xl bg-white font-bold text-emerald-700"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-3 items-end">
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">
+                    Cant. Mín. Mayor
+                  </label>
+                  <input
+                    type="number"
+                    min="2"
+                    required
+                    value={editingProduct.wholesaleMinQty}
+                    onChange={(e) =>
+                      setEditingProduct({ ...editingProduct, wholesaleMinQty: e.target.value })
+                    }
+                    className="w-full px-3 py-2 border border-slate-300 rounded-xl font-bold"
+                  />
+                </div>
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Stock Disponible</label>
+                  <input
+                    type="number"
+                    min="0"
+                    required
+                    value={editingProduct.stock}
+                    onChange={(e) =>
+                      setEditingProduct({ ...editingProduct, stock: e.target.value })
+                    }
+                    className="w-full px-3 py-2 border border-slate-300 rounded-xl font-bold"
+                  />
+                </div>
+                <label className="flex items-center gap-2 p-2.5 border border-slate-200 rounded-xl cursor-pointer bg-amber-50/60">
+                  <input
+                    type="checkbox"
+                    checked={editingProduct.isOffer}
+                    onChange={(e) =>
+                      setEditingProduct({ ...editingProduct, isOffer: e.target.checked })
+                    }
+                    className="w-4 h-4 accent-amber-500"
+                  />
+                  <span className="font-bold text-amber-800">En Oferta</span>
+                </label>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-3">
+                <button
+                  type="button"
+                  onClick={() => setEditingProduct(null)}
+                  className="px-4 py-2.5 rounded-xl border border-slate-200 font-bold text-slate-600 cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold shadow-md cursor-pointer"
+                >
+                  Guardar Producto
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CashControlTab({ settings, cashMovements, setCashMovements, showToast }) {
+  const [movType, setMovType] = useState('IN');
+  const [category, setCategory] = useState('Ingreso Extra');
+  const [description, setDescription] = useState('');
+  const [amountInput, setAmountInput] = useState('');
+  const [currencyInput, setCurrencyInput] = useState('USD');
+
+  const totals = useMemo(() => {
+    const totalIn = cashMovements
+      .filter((m) => m.type === 'IN')
+      .reduce((acc, m) => acc + m.amountUsd, 0);
+    const totalOut = cashMovements
+      .filter((m) => m.type === 'OUT')
+      .reduce((acc, m) => acc + m.amountUsd, 0);
+    return { totalIn, totalOut, netBalance: totalIn - totalOut };
+  }, [cashMovements]);
+
+  const handleAddMovement = (e) => {
+    e.preventDefault();
+    const rawVal = Number(amountInput);
+    if (!rawVal || rawVal <= 0) return;
+
+    const amountUsd =
+      currencyInput === 'BS' ? rawVal / settings.exchangeRate : rawVal;
+
+    const newMov = {
+      id: `MOV-${Date.now()}`,
+      date: new Date().toISOString(),
+      type: movType,
+      category,
+      description: description.trim() || category,
+      amountUsd,
+      currencyUsed: currencyInput,
+    };
+
+    setCashMovements((prev) => [newMov, ...prev]);
+    setAmountInput('');
+    setDescription('');
+    showToast(
+      movType === 'IN'
+        ? 'Entrada de caja registrada'
+        : 'Salida / gasto de caja registrado'
+    );
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-xs">
+          <span className="text-xs font-bold text-slate-500 flex items-center gap-1.5">
+            <ArrowUpRight className="w-4 h-4 text-emerald-600" />
+            TOTAL ENTRADAS DE CAJA
+          </span>
+          <p className="text-2xl font-black text-emerald-600 mt-1">
+            {formatUsd(totals.totalIn)}
+          </p>
+          <p className="text-xs text-slate-400">
+            {formatBs(totals.totalIn * settings.exchangeRate)}
+          </p>
+        </div>
+
+        <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-xs">
+          <span className="text-xs font-bold text-slate-500 flex items-center gap-1.5">
+            <ArrowDownRight className="w-4 h-4 text-red-600" />
+            TOTAL SALIDAS / GASTOS
+          </span>
+          <p className="text-2xl font-black text-red-600 mt-1">
+            {formatUsd(totals.totalOut)}
+          </p>
+          <p className="text-xs text-slate-400">
+            {formatBs(totals.totalOut * settings.exchangeRate)}
+          </p>
+        </div>
+
+        <div className="bg-slate-900 text-white p-5 rounded-3xl shadow-md">
+          <span className="text-xs font-bold text-slate-400 flex items-center gap-1.5">
+            <Wallet className="w-4 h-4 text-amber-400" />
+            SALDO NETO ACTUAL EN CAJA
+          </span>
+          <p className="text-2xl font-black text-amber-400 mt-1">
+            {formatUsd(totals.netBalance)}
+          </p>
+          <p className="text-xs text-slate-300">
+            {formatBs(totals.netBalance * settings.exchangeRate)}
+          </p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <form
+          onSubmit={handleAddMovement}
+          className="lg:col-span-4 bg-white p-5 rounded-3xl border border-slate-200 shadow-xs space-y-4 h-fit"
+        >
+          <h3 className="font-extrabold text-slate-900">Registrar Movimiento de Caja</h3>
+
+          <div className="grid grid-cols-2 gap-2 p-1 bg-slate-100 rounded-xl">
+            <button
+              type="button"
+              onClick={() => {
+                setMovType('IN');
+                setCategory('Ingreso Extra');
+              }}
+              className={`py-2 rounded-lg text-xs font-extrabold cursor-pointer ${
+                movType === 'IN'
+                  ? 'bg-emerald-600 text-white shadow-xs'
+                  : 'text-slate-600'
+              }`}
+            >
+              + Entrada ($)
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setMovType('OUT');
+                setCategory('Pago a Proveedores');
+              }}
+              className={`py-2 rounded-lg text-xs font-extrabold cursor-pointer ${
+                movType === 'OUT'
+                  ? 'bg-red-600 text-white shadow-xs'
+                  : 'text-slate-600'
+              }`}
+            >
+              - Salida / Gasto
+            </button>
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-slate-700 mb-1">Concepto</label>
+            <select
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+              className="w-full px-3 py-2.5 border border-slate-300 rounded-xl text-xs font-semibold bg-white"
+            >
+              {movType === 'IN' ? (
+                <>
+                  <option value="Ingreso Extra">Ingreso Extra / Base de Caja</option>
+                  <option value="Cobro Cuenta por Cobrar">Cobro Cuenta por Cobrar</option>
+                  <option value="Otro Ingreso">Otro Ingreso</option>
+                </>
+              ) : (
+                <>
+                  <option value="Pago a Proveedores">Pago a Proveedores</option>
+                  <option value="Gastos Operativos / Servicios">Gastos Operativos / Servicios</option>
+                  <option value="Pago Delivery / Transporte">Pago Delivery / Transporte</option>
+                  <option value="Retiro del Dueño">Retiro del Dueño</option>
+                </>
+              )}
+            </select>
+          </div>
+
+          <div className="grid grid-cols-3 gap-2">
+            <div className="col-span-2">
+              <label className="block text-xs font-bold text-slate-700 mb-1">Monto</label>
+              <input
+                type="number"
+                step="0.01"
+                min="0.01"
+                required
+                value={amountInput}
+                onChange={(e) => setAmountInput(e.target.value)}
+                placeholder="0.00"
+                className="w-full px-3 py-2.5 border border-slate-300 rounded-xl text-sm font-bold"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">Moneda</label>
+              <select
+                value={currencyInput}
+                onChange={(e) => setCurrencyInput(e.target.value)}
+                className="w-full px-2 py-2.5 border border-slate-300 rounded-xl text-xs font-bold bg-white"
+              >
+                <option value="USD">USD ($)</option>
+                <option value="BS">Bs.</option>
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-slate-700 mb-1">
+              Descripción / Nota
+            </label>
+            <input
+              type="text"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Ej: Pago factura distribuidora..."
+              className="w-full px-3 py-2.5 border border-slate-300 rounded-xl text-xs"
+            />
+          </div>
+
+          <button
+            type="submit"
+            className={`w-full py-3 rounded-xl text-white font-extrabold text-xs shadow-md cursor-pointer ${
+              movType === 'IN'
+                ? 'bg-emerald-600 hover:bg-emerald-700'
+                : 'bg-red-600 hover:bg-red-700'
+            }`}
+          >
+            Registrar {movType === 'IN' ? 'Entrada' : 'Salida'}
+          </button>
+        </form>
+
+        <div className="lg:col-span-8 bg-white p-5 rounded-3xl border border-slate-200 shadow-xs space-y-3">
+          <h3 className="font-extrabold text-slate-900">Historial de Movimientos de Caja</h3>
+          <div className="space-y-2 max-h-[450px] overflow-y-auto pr-1">
+            {cashMovements.map((m) => (
+              <div
+                key={m.id}
+                className="p-3 rounded-2xl border border-slate-100 bg-slate-50/70 flex items-center justify-between gap-3"
+              >
+                <div className="flex items-center gap-3">
+                  <div
+                    className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
+                      m.type === 'IN'
+                        ? 'bg-emerald-100 text-emerald-700'
+                        : 'bg-red-100 text-red-700'
+                    }`}
+                  >
+                    {m.type === 'IN' ? (
+                      <ArrowUpRight className="w-5 h-5" />
+                    ) : (
+                      <ArrowDownRight className="w-5 h-5" />
+                    )}
+                  </div>
+                  <div>
+                    <p className="text-xs font-extrabold text-slate-800">{m.category}</p>
+                    <p className="text-[11px] text-slate-500">{m.description}</p>
+                    <span className="text-[10px] text-slate-400">
+                      {new Date(m.date).toLocaleString('es-VE')}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="text-right">
+                  <span
+                    className={`text-sm font-black block ${
+                      m.type === 'IN' ? 'text-emerald-600' : 'text-red-600'
+                    }`}
+                  >
+                    {m.type === 'IN' ? '+' : '-'}
+                    {formatUsd(m.amountUsd)}
+                  </span>
+                  <span className="text-[11px] text-slate-400">
+                    {formatBs(m.amountUsd * settings.exchangeRate)}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AnalyticsAndCustomersTab({ settings, sales, customers }) {
+  const [period, setPeriod] = useState('ALL');
+
+  const filteredSales = useMemo(() => {
+    const now = new Date();
+    return sales.filter((s) => {
+      const d = new Date(s.date);
+      const diffMs = now - d;
+      const diffDays = diffMs / (1000 * 60 * 60 * 24);
+
+      if (period === 'TODAY') {
+        return d.toDateString() === now.toDateString();
+      }
+      if (period === 'WEEK') return diffDays <= 7;
+      if (period === 'MONTH') return diffDays <= 30;
+      if (period === 'YEAR') return diffDays <= 365;
+      return true;
+    });
+  }, [sales, period]);
+
+  const kpis = useMemo(() => {
+    const totalSalesUsd = filteredSales.reduce((acc, s) => acc + s.totalUsd, 0);
+    const totalCostUsd = filteredSales.reduce((acc, s) => acc + (s.totalCostUsd || 0), 0);
+    const netProfitUsd = totalSalesUsd - totalCostUsd;
+    const marginPercent = totalSalesUsd > 0 ? (netProfitUsd / totalSalesUsd) * 100 : 0;
+    const onlineCount = filteredSales.filter((s) => s.channel === 'ONLINE').length;
+    const posCount = filteredSales.filter((s) => s.channel === 'POS').length;
+
+    return {
+      totalSalesUsd,
+      totalCostUsd,
+      netProfitUsd,
+      marginPercent,
+      onlineCount,
+      posCount,
+      totalOrders: filteredSales.length,
+    };
+  }, [filteredSales]);
+
+  const customerRanking = useMemo(() => {
+    const map = {};
+
+    sales.forEach((s) => {
+      if (!s.customerCi || s.customerCi === 'CLIENTE-GENERAL') return;
+      if (!map[s.customerCi]) {
+        const profile = customers.find((c) => c.ci === s.customerCi);
+        map[s.customerCi] = {
+          ci: s.customerCi,
+          name: profile ? `${profile.firstName} ${profile.lastName}` : s.customerName,
+          phone: profile?.phone || s.customerPhone,
+          address: profile?.address || s.customerAddress,
+          photo: profile?.photo || null,
+          ordersCount: 0,
+          totalSpentUsd: 0,
+          lastPurchase: s.date,
+        };
+      }
+      map[s.customerCi].ordersCount += 1;
+      map[s.customerCi].totalSpentUsd += s.totalUsd;
+      if (new Date(s.date) > new Date(map[s.customerCi].lastPurchase)) {
+        map[s.customerCi].lastPurchase = s.date;
+      }
+    });
+
+    customers.forEach((c) => {
+      if (!map[c.ci]) {
+        map[c.ci] = {
+          ci: c.ci,
+          name: `${c.firstName} ${c.lastName}`,
+          phone: c.phone,
+          address: c.address,
+          photo: c.photo,
+          ordersCount: 0,
+          totalSpentUsd: 0,
+          lastPurchase: null,
+        };
+      }
+    });
+
+    return Object.values(map).sort((a, b) => b.totalSpentUsd - a.totalSpentUsd);
+  }, [sales, customers]);
+
+  return (
+    <div className="space-y-6">
+      <div className="bg-white p-4 rounded-3xl border border-slate-200 flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 className="text-lg font-extrabold text-slate-900">
+            Resumen Financiero y Ganancias
+          </h2>
+          <p className="text-xs text-slate-500">
+            Calculado automáticamente según el costo y precio de venta de cada producto
+          </p>
+        </div>
+
+        <div className="flex flex-wrap gap-1.5 bg-slate-100 p-1 rounded-xl">
+          {[
+            { id: 'TODAY', label: 'Diario (Hoy)' },
+            { id: 'WEEK', label: 'Semanal' },
+            { id: 'MONTH', label: 'Mensual' },
+            { id: 'YEAR', label: 'Anual' },
+            { id: 'ALL', label: 'Todo' },
+          ].map((p) => (
+            <button
+              key={p.id}
+              onClick={() => setPeriod(p.id)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-extrabold transition cursor-pointer ${
+                period === p.id
+                  ? 'bg-emerald-600 text-white shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              {p.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-xs">
+          <span className="text-xs font-bold text-slate-500">VENTAS TOTALES</span>
+          <p className="text-2xl font-black text-slate-900 mt-1">
+            {formatUsd(kpis.totalSalesUsd)}
+          </p>
+          <p className="text-xs font-semibold text-emerald-700 mt-0.5">
+            {formatBs(kpis.totalSalesUsd * settings.exchangeRate)}
+          </p>
+        </div>
+
+        <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-xs">
+          <span className="text-xs font-bold text-slate-500">COSTO DE MERCANCÍA</span>
+          <p className="text-2xl font-black text-slate-700 mt-1">
+            {formatUsd(kpis.totalCostUsd)}
+          </p>
+          <p className="text-xs text-slate-400 mt-0.5">Inversión en productos vendidos</p>
+        </div>
+
+        <div className="bg-gradient-to-br from-emerald-600 to-emerald-800 text-white p-5 rounded-3xl shadow-md">
+          <span className="text-xs font-bold text-emerald-100 flex items-center justify-between">
+            <span>GANANCIA NETA</span>
+            <span className="bg-white/20 px-2 py-0.5 rounded-full text-[10px]">
+              Margen {kpis.marginPercent.toFixed(1)}%
+            </span>
+          </span>
+          <p className="text-2xl font-black text-amber-300 mt-1">
+            {formatUsd(kpis.netProfitUsd)}
+          </p>
+          <p className="text-xs text-emerald-100 mt-0.5">
+            {formatBs(kpis.netProfitUsd * settings.exchangeRate)}
+          </p>
+        </div>
+
+        <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-xs">
+          <span className="text-xs font-bold text-slate-500">PEDIDOS REALIZADOS</span>
+          <p className="text-2xl font-black text-slate-900 mt-1">{kpis.totalOrders}</p>
+          <div className="flex items-center gap-2 mt-1 text-[11px] font-semibold">
+            <span className="text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded">
+              Web: {kpis.onlineCount}
+            </span>
+            <span className="text-slate-700 bg-slate-100 px-2 py-0.5 rounded">
+              Caja: {kpis.posCount}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-xs space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="font-extrabold text-slate-900 flex items-center gap-2">
+              <User className="w-5 h-5 text-emerald-600" />
+              Estadísticas de Clientes por Cédula (CI)
+            </h3>
+            <p className="text-xs text-slate-500">
+              Historial acumulado y ranking de mejores compradores registrados
+            </p>
+          </div>
+          <span className="text-xs font-bold bg-slate-100 px-3 py-1 rounded-full text-slate-700">
+            {customerRanking.length} clientes registrados
+          </span>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="border-b border-slate-200 text-[11px] font-extrabold uppercase text-slate-500 bg-slate-50">
+                <th className="py-3 px-3">Cliente</th>
+                <th className="py-3 px-3">Cédula (CI)</th>
+                <th className="py-3 px-3">Teléfono / Ubicación</th>
+                <th className="py-3 px-3 text-center">Compras</th>
+                <th className="py-3 px-3 text-right">Total Comprado ($)</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 text-xs">
+              {customerRanking.map((c, idx) => (
+                <tr key={c.ci} className="hover:bg-slate-50">
+                  <td className="py-3 px-3">
+                    <div className="flex items-center gap-2.5">
+                      {c.photo ? (
+                        <img
+                          src={c.photo}
+                          alt={c.name}
+                          className="w-8 h-8 rounded-full object-cover border border-emerald-500"
+                        />
+                      ) : (
+                        <div className="w-8 h-8 rounded-full bg-emerald-100 text-emerald-800 flex items-center justify-center font-extrabold">
+                          {c.name[0]}
+                        </div>
+                      )}
+                      <div>
+                        <p className="font-bold text-slate-900 flex items-center gap-1.5">
+                          {c.name}
+                          {idx === 0 && c.totalSpentUsd > 0 && (
+                            <span className="text-[10px] bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded font-extrabold">
+                              TOP #1
+                            </span>
+                          )}
+                        </p>
+                        <span className="text-[10px] text-slate-400">
+                          {c.lastPurchase
+                            ? `Última compra: ${new Date(c.lastPurchase).toLocaleDateString()}`
+                            : 'Sin compras aún'}
+                        </span>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="py-3 px-3 font-extrabold text-slate-700">{c.ci}</td>
+                  <td className="py-3 px-3">
+                    <p className="font-semibold text-slate-700">{c.phone}</p>
+                    <p className="text-[11px] text-slate-400 truncate max-w-xs">{c.address}</p>
+                  </td>
+                  <td className="py-3 px-3 text-center">
+                    <span className="px-2.5 py-1 rounded-full bg-slate-100 font-extrabold text-slate-800">
+                      {c.ordersCount}
+                    </span>
+                  </td>
+                  <td className="py-3 px-3 text-right">
+                    <span className="font-black text-emerald-700 text-sm block">
+                      {formatUsd(c.totalSpentUsd)}
+                    </span>
+                    <span className="text-[10px] text-slate-400">
+                      {formatBs(c.totalSpentUsd * settings.exchangeRate)}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const COLOR_PRESETS = [
+  { name: 'Esmeralda Clásico', primary: '#059669', accent: '#f59e0b', header: '#064e3b' },
+  { name: 'Azul Corporativo', primary: '#2563eb', accent: '#f59e0b', header: '#1e3a8a' },
+  { name: 'Rojo Comercial', primary: '#dc2626', accent: '#fbbf24', header: '#7f1d1d' },
+  { name: 'Morado Moderno', primary: '#7c3aed', accent: '#10b981', header: '#4c1d95' },
+  { name: 'Naranja Energético', primary: '#ea580c', accent: '#0ea5e9', header: '#7c2d12' },
+];
+
+function StoreSettingsTab({ settings, setSettings, showToast }) {
+  const [form, setForm] = useState(settings);
+  const [showAdminPin, setShowAdminPin] = useState(false);
+  const logoInputRef = useRef(null);
+
+  const handleLogoUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const compressedLogo = await compressImageFile(file, 300, 0.85);
+      setForm((prev) => ({ ...prev, storeLogo: compressedLogo }));
+      showToast('Logo cargado. Haz clic en Guardar Configuración para aplicarlo.');
+    } catch (err) {
+      showToast('No se pudo cargar el logo', 'error');
+    }
+  };
+
+  const handleSaveSettings = (e) => {
+    e.preventDefault();
+    if (!form.adminPin || form.adminPin.trim().length < 6) {
+      showToast('El PIN de administrador debe tener al menos 6 caracteres para mayor seguridad', 'warning');
+      return;
+    }
+
+    setSettings({
+      ...form,
+      exchangeRate: Math.max(1, Number(form.exchangeRate)),
+      freeDeliveryThreshold: Math.max(0, Number(form.freeDeliveryThreshold)),
+      deliveryFee: Math.max(0, Number(form.deliveryFee)),
+      adminPin: form.adminPin.trim(),
+    });
+    showToast('Marca, colores, tasa y configuración guardados en toda la tienda');
+  };
+
+  return (
+    <div className="max-w-3xl bg-white rounded-3xl border border-slate-200 p-6 shadow-xs space-y-6">
+      <div>
+        <h2 className="text-lg font-extrabold text-slate-900">
+          Identidad Visual, Colores, Tasa y Seguridad
+        </h2>
+        <p className="text-xs text-slate-500">
+          Personaliza el logo, los colores de la tienda, la tasa del día y tu contraseña de
+          administrador
+        </p>
+      </div>
+
+      <form onSubmit={handleSaveSettings} className="space-y-6 text-sm">
+        <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-4">
+          <h3 className="text-xs font-extrabold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+            <ImageIcon className="w-4 h-4 text-emerald-600" />
+            1. Logo y Datos de la Tienda
+          </h3>
+
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+            <div className="w-20 h-20 rounded-2xl bg-white border border-slate-200 flex items-center justify-center overflow-hidden shadow-2xs shrink-0">
+              {form.storeLogo ? (
+                <img
+                  src={form.storeLogo}
+                  alt="Logo"
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <ShoppingBag className="w-9 h-9 text-slate-400" />
+              )}
+            </div>
+            <div className="space-y-1.5">
+              <p className="text-xs font-bold text-slate-800">Logo del Negocio (JPG / PNG)</p>
+              <p className="text-[11px] text-slate-500">
+                Se mostrará en la barra superior de la tienda y en los encabezados.
+              </p>
+              <input
+                ref={logoInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                onChange={handleLogoUpload}
+                className="hidden"
+              />
+              <div className="flex items-center gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => logoInputRef.current?.click()}
+                  className="px-3.5 py-1.5 rounded-xl bg-slate-900 text-white text-xs font-bold hover:bg-slate-800 cursor-pointer"
+                >
+                  Subir Logo JPG/PNG
+                </button>
+                {form.storeLogo && (
+                  <button
+                    type="button"
+                    onClick={() => setForm({ ...form, storeLogo: null })}
+                    className="px-3 py-1.5 rounded-xl bg-red-50 text-red-600 text-xs font-bold hover:bg-red-100 cursor-pointer"
+                  >
+                    Restablecer Ícono
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">
+                Nombre del Negocio
+              </label>
+              <input
+                type="text"
+                required
+                value={form.storeName}
+                onChange={(e) => setForm({ ...form, storeName: e.target.value })}
+                className="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl bg-white font-semibold"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">
+                Eslogan / Subtítulo
+              </label>
+              <input
+                type="text"
+                value={form.storeSlogan || ''}
+                onChange={(e) => setForm({ ...form, storeSlogan: e.target.value })}
+                placeholder="Ej: Tu mercado rápido y fresco"
+                className="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl bg-white"
+              />
+            </div>
+          </div>
+        </div>
+
+        <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h3 className="text-xs font-extrabold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+              <Palette className="w-4 h-4 text-emerald-600" />
+              2. Paleta de Colores de la Tienda
+            </h3>
+            <div className="flex flex-wrap gap-1.5">
+              {COLOR_PRESETS.map((preset) => (
+                <button
+                  key={preset.name}
+                  type="button"
+                  onClick={() =>
+                    setForm({
+                      ...form,
+                      primaryColor: preset.primary,
+                      accentColor: preset.accent,
+                      headerColor: preset.header,
+                    })
+                  }
+                  className="px-2.5 py-1 rounded-lg bg-white border border-slate-200 hover:border-slate-400 text-[11px] font-bold flex items-center gap-1.5 cursor-pointer"
+                >
+                  <span
+                    className="w-3 h-3 rounded-full"
+                    style={{ backgroundColor: preset.primary }}
+                  />
+                  {preset.name}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="bg-white p-3 rounded-xl border border-slate-200 flex items-center justify-between">
+              <div>
+                <p className="text-xs font-bold text-slate-800">Color Primario</p>
+                <p className="text-[10px] text-slate-400">Botones y precios</p>
+              </div>
+              <input
+                type="color"
+                value={form.primaryColor || '#059669'}
+                onChange={(e) => setForm({ ...form, primaryColor: e.target.value })}
+                className="w-10 h-10 rounded-lg cursor-pointer border-0"
+              />
+            </div>
+
+            <div className="bg-white p-3 rounded-xl border border-slate-200 flex items-center justify-between">
+              <div>
+                <p className="text-xs font-bold text-slate-800">Color Acento</p>
+                <p className="text-[10px] text-slate-400">Ofertas y contador</p>
+              </div>
+              <input
+                type="color"
+                value={form.accentColor || '#f59e0b'}
+                onChange={(e) => setForm({ ...form, accentColor: e.target.value })}
+                className="w-10 h-10 rounded-lg cursor-pointer border-0"
+              />
+            </div>
+
+            <div className="bg-white p-3 rounded-xl border border-slate-200 flex items-center justify-between">
+              <div>
+                <p className="text-xs font-bold text-slate-800">Barra Superior</p>
+                <p className="text-[10px] text-slate-400">Encabezado y banner</p>
+              </div>
+              <input
+                type="color"
+                value={form.headerColor || '#064e3b'}
+                onChange={(e) => setForm({ ...form, headerColor: e.target.value })}
+                className="w-10 h-10 rounded-lg cursor-pointer border-0"
+              />
+            </div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-xs font-bold text-emerald-700 mb-1">
+              Tasa de Cambio del Día (Bs. por $1)
+            </label>
+            <input
+              type="number"
+              step="0.01"
+              min="1"
+              required
+              value={form.exchangeRate}
+              onChange={(e) => setForm({ ...form, exchangeRate: e.target.value })}
+              className="w-full px-3.5 py-2.5 border-2 border-emerald-500 rounded-xl font-black text-emerald-800 text-base"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-slate-700 mb-1">
+              WhatsApp Pedidos y Atención (Ej: 58412...)
+            </label>
+            <input
+              type="text"
+              required
+              value={form.whatsappNumber}
+              onChange={(e) => setForm({ ...form, whatsappNumber: e.target.value })}
+              className="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl font-semibold"
+            />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div>
+            <label className="block text-xs font-bold text-slate-700 mb-1">
+              Delivery Gratis desde ($)
+            </label>
+            <input
+              type="number"
+              step="0.5"
+              min="0"
+              required
+              value={form.freeDeliveryThreshold}
+              onChange={(e) =>
+                setForm({ ...form, freeDeliveryThreshold: e.target.value })
+              }
+              className="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl font-semibold"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-slate-700 mb-1">
+              Costo Delivery (&lt; ${form.freeDeliveryThreshold})
+            </label>
+            <input
+              type="number"
+              step="0.1"
+              min="0"
+              required
+              value={form.deliveryFee}
+              onChange={(e) => setForm({ ...form, deliveryFee: e.target.value })}
+              className="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl font-semibold"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-slate-700 mb-1">
+              PIN / Contraseña Admin (6-32 car.)
+            </label>
+            <div className="relative">
+              <input
+                type={showAdminPin ? 'text' : 'password'}
+                minLength={6}
+                maxLength={32}
+                required
+                value={form.adminPin}
+                onChange={(e) => setForm({ ...form, adminPin: e.target.value })}
+                className="w-full pl-3.5 pr-10 py-2.5 border border-slate-300 rounded-xl font-bold"
+              />
+              <button
+                type="button"
+                onClick={() => setShowAdminPin(!showAdminPin)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 cursor-pointer"
+              >
+                {showAdminPin ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div className="pt-2">
+          <button
+            type="submit"
+            style={{ backgroundColor: form.primaryColor || '#059669' }}
+            className="px-6 py-3 hover:opacity-95 text-white font-extrabold rounded-xl shadow-md transition cursor-pointer"
+          >
+            Guardar Configuración y Marca
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+}
