@@ -870,17 +870,37 @@
             }
           };
 
-          const handleVerifyPin = (e) => {
-            e.preventDefault();
-            if (pinInput === settings.adminPin) {
-              setIsAdminUnlocked(true);
-              setShowPinModal(false);
-              setAppMode('ADMIN');
-              showToast('Bienvenido al Panel Administrativo y POS');
-            } else {
-              setPinError('Contraseña / PIN incorrecto. Intenta nuevamente.');
-            }
-          };
+const handleAdminLogin = async (e) => {
+  e.preventDefault();
+  setPinError("");
+  const auth = window.firebaseAuth || firebase.auth();
+  
+  try {
+    // Paso 1: Valida correo y contraseña en Firebase
+    await auth.signInWithEmailAndPassword(emailInput, passwordInput);
+    
+    // Si Firebase es correcto, pasamos al segundo paso del PIN secreto
+    setIsSecondaryStep(true);
+  } catch (error) {
+    setPinError("Correo o contraseña incorrectos. Inténtalo de nuevo.");
+  }
+};
+
+const handleVerifySecondaryPin = (e) => {
+  e.preventDefault();
+  // Cambia '2626' por tu número PIN secreto personal
+  if (secondaryPinInput === '2626') {
+    setIsAdminUnlocked(true);
+    setShowPinModal(false);
+    setIsSecondaryStep(false);
+    setAppMode('ADMIN');
+    showToast('¡Bienvenido al Panel Administrativo y POS!');
+    setSecondaryPinInput('');
+  } else {
+    setPinError("PIN de seguridad secundario incorrecto.");
+    setSecondaryPinInput('');
+  }
+};
 
           const storeDepartmentList = useMemo(() => {
             return [
