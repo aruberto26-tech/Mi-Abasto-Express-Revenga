@@ -85,12 +85,57 @@
           ShieldCheck,
           Info,
           CreditCard,
-          X
+          X,
+          LayoutGrid,
+          Sparkles,
+          Megaphone
         } from 'lucide-react';
 
         const { doc, getDoc, setDoc, onSnapshot, signInAnonymously } = window.firebaseFirestoreFns;
         const db = window.firebaseDb;
         const auth = window.firebaseAuth;
+
+        // ============================================================================
+        // PERSISTENCIA PERMANENTE DE SESIÓN DEL CLIENTE (LocalStorage + Respaldo Cookie)
+        // ============================================================================
+        const SESSION_STORAGE_KEY = 'abasto_cliente_ci_permanente_v1';
+
+        function guardarSesionClientePermanente(cedula) {
+          if (!cedula) return;
+          const ciLimpia = String(cedula).trim().toUpperCase();
+          try {
+            window.localStorage.setItem(SESSION_STORAGE_KEY, ciLimpia);
+            document.cookie = `abasto_cliente_ci=${encodeURIComponent(ciLimpia)}; max-age=31536000; path=/; SameSite=Lax`;
+          } catch (e) {
+            console.error('Error guardando sesión local:', e);
+          }
+        }
+
+        function obtenerSesionClienteGuardada() {
+          try {
+            const localCi = window.localStorage.getItem(SESSION_STORAGE_KEY);
+            if (localCi) return localCi.trim().toUpperCase();
+
+            const match = document.cookie.match(new RegExp('(^| )abasto_cliente_ci=([^;]+)'));
+            if (match && match[2]) {
+              const cookieCi = decodeURIComponent(match[2]).trim().toUpperCase();
+              window.localStorage.setItem(SESSION_STORAGE_KEY, cookieCi);
+              return cookieCi;
+            }
+          } catch (e) {
+            console.error('Error leyendo sesión local:', e);
+          }
+          return null;
+        }
+
+        function cerrarSesionClientePermanente() {
+          try {
+            window.localStorage.removeItem(SESSION_STORAGE_KEY);
+            document.cookie = 'abasto_cliente_ci=; max-age=0; path=/;';
+          } catch (e) {
+            console.error('Error cerrando sesión local:', e);
+          }
+        }
 
         // ============================================================================
         // DATOS INICIALES DE DEMOSTRACIÓN (ABASTO VENEZOLANO)
@@ -102,6 +147,13 @@
           primaryColor: '#059669',
           accentColor: '#f59e0b',
           headerColor: '#064e3b',
+          pageBgColor: '#f8fafc',
+          heroBadgeText: 'Precios al Mayor y al Detal',
+          heroTitle: 'Haz tu compra completa sin salir de casa',
+          heroSubtitle: 'Aprovecha descuentos automáticos llevando por cantidad y obtén Delivery GRATIS. Pagos digitales salen de inmediato; efectivo al recibir.',
+          topBannerActive: false,
+          topBannerText: '🚀 ¡Envíos rápidos a domicilio! Pide por aquí o por WhatsApp',
+          mobileColumns: 2,
           exchangeRate: 46.50,
           whatsappNumber: '584121234567',
           freeDeliveryThreshold: 10.00,
@@ -375,7 +427,7 @@
         ];
 
         // ============================================================================
-        // UTILIDADES DE FORMATO, IMAGEN Y PERSISTENCIA
+        // UTILIDADES DE FORMATO E IMAGEN
         // ============================================================================
         const formatUsd = (val) => `$${Number(val || 0).toFixed(2)}`;
         const formatBs = (val) =>
@@ -415,13 +467,17 @@
         }
 
         // ============================================================================
-        // COMPONENTE PRINCIPAL: APP CON FIREBASE EN TIEMPO REAL
+        // COMPONENTE PRINCIPAL: APP CON FIREBASE EN TIEMPO REAL Y SESIÓN PERMANENTE
         // ============================================================================
         function App() {
           const [cloudData, setCloudData] = useState(null);
           const [isCloudLoaded, setIsCloudLoaded] = useState(false);
 
-          const settings = cloudData?.settings || INITIAL_SETTINGS;
+          const settings = useMemo(
+            () => ({ ...INITIAL_SETTINGS, ...(cloudData?.settings || {}) }),
+            [cloudData]
+          );
+
           const setSettings = (newVal) => {
             const val = typeof newVal === 'function' ? newVal(settings) : newVal;
             updateCloud({ settings: val });
@@ -457,7 +513,19 @@
             updateCloud({ cashMovements: val });
           };
 
-          const [currentUserCi, setCurrentUserCi] = useState(null);
+          // Inicializar la sesión del cliente desde LocalStorage / Cookie permanentemente
+          const [currentUserCi, setCurrentUserCiState] = useState(() => obtenerSesionClienteGuardada());
+
+          const setCurrentUserCi = (ci) => {
+            if (ci) {
+              const clean = String(ci).trim().toUpperCase();
+              guardarSesionClientePermanente(clean);
+              setCurrentUserCiState(clean);
+            } else {
+              cerrarSesionClientePermanente();
+              setCurrentUserCiState(null);
+            }
+          };
 
           const [appMode, setAppMode] = useState('STORE');
           const [isAdminUnlocked, setIsAdminUnlocked] = useState(false);
@@ -480,6 +548,8 @@
           const brandPrimary = settings.primaryColor || '#059669';
           const brandAccent = settings.accentColor || '#f59e0b';
           const brandHeader = settings.headerColor || '#064e3b';
+          const brandPageBg = settings.pageBgColor || '#f8fafc';
+          const mobileCols = Number(settings.mobileColumns) === 1 ? 1 : 2;
 
           const [toast, setToast] = useState(null);
           const showToast = (message, type = 'success') => {
@@ -487,32 +557,53 @@
             setTimeout(() => setToast(null), 3500);
           };
 
+          // Sincronización en tiempo real con Firebase Firestore
           useEffect(() => {
-            signInAnonymously(auth).catch((err) => console.error("Error auth anónimo:", err));
-            const docRef = doc(db, "abasto_data", "main_store");
-            const unsubscribe = onSnapshot(docRef, (docSnap) => {
-              if (docSnap.exists()) {
-                setCloudData(docSnap.data());
-              } else {
-                const initial = {
-                  settings: INITIAL_SETTINGS,
-                  departments: INITIAL_DEPARTMENTS,
-                  products: INITIAL_PRODUCTS,
-                  customers: INITIAL_CUSTOMERS,
-                  sales: INITIAL_SALES,
-                  cashMovements: INITIAL_CASH_MOVEMENTS,
-                };
-                setDoc(docRef, initial);
-                setCloudData(initial);
+            signInAnonymously(auth).catch((err) => console.error('Error auth anónimo:', err));
+            const docRef = doc(db, 'abasto_data', 'main_store');
+            const unsubscribe = onSnapshot(
+              docRef,
+              (docSnap) => {
+                if (docSnap.exists()) {
+                  setCloudData(docSnap.data());
+                } else {
+                  const initial = {
+                    settings: INITIAL_SETTINGS,
+                    departments: INITIAL_DEPARTMENTS,
+                    products: INITIAL_PRODUCTS,
+                    customers: INITIAL_CUSTOMERS,
+                    sales: INITIAL_SALES,
+                    cashMovements: INITIAL_CASH_MOVEMENTS,
+                  };
+                  setDoc(docRef, initial);
+                  setCloudData(initial);
+                }
+                setIsCloudLoaded(true);
+              },
+              (error) => {
+                console.error('Error en Firestore snapshot:', error);
+                setIsCloudLoaded(true);
               }
-              setIsCloudLoaded(true);
-            }, (error) => {
-              console.error("Error en Firestore snapshot:", error);
-              setIsCloudLoaded(true);
-            });
+            );
 
             return () => unsubscribe();
           }, []);
+
+          // Verificar si existe una sesión guardada en el navegador y restaurar también desde colección individual de respaldo si hace falta
+          useEffect(() => {
+            if (!isCloudLoaded || !currentUserCi) return;
+            const existsInMain = customers.some((c) => c.ci === currentUserCi);
+            if (!existsInMain && db) {
+              getDoc(doc(db, 'clientes', currentUserCi))
+                .then((snap) => {
+                  if (snap.exists()) {
+                    const recovered = snap.data();
+                    updateCloud({ customers: [recovered, ...customers] });
+                  }
+                })
+                .catch((err) => console.error('Error recuperando respaldo de cliente:', err));
+            }
+          }, [isCloudLoaded, currentUserCi]);
 
           const updateCloud = (updatedFields) => {
             const newData = {
@@ -525,8 +616,31 @@
               ...updatedFields,
             };
             setCloudData(newData);
-            const docRef = doc(db, "abasto_data", "main_store");
-            setDoc(docRef, newData).catch((err) => console.error("Error guardando en nube:", err));
+            const docRef = doc(db, 'abasto_data', 'main_store');
+            setDoc(docRef, newData, { merge: true }).catch((err) =>
+              console.error('Error guardando en nube:', err)
+            );
+          };
+
+          const saveCustomerToCloudAndSession = (customerRecord) => {
+            const ciNorm = customerRecord.ci.trim().toUpperCase();
+            const recordNorm = { ...customerRecord, ci: ciNorm };
+
+            const exists = customers.some((c) => c.ci === ciNorm);
+            const updatedCustomers = exists
+              ? customers.map((c) => (c.ci === ciNorm ? recordNorm : c))
+              : [recordNorm, ...customers];
+
+            // 1. Guarda en el documento principal de la tienda
+            updateCloud({ customers: updatedCustomers });
+
+            // 2. Guarda también en colección dedicada 'clientes/{ci}' para máxima seguridad y persistencia
+            setDoc(doc(db, 'clientes', ciNorm), recordNorm, { merge: true }).catch((err) =>
+              console.error('Error guardando respaldo individual del cliente:', err)
+            );
+
+            // 3. Guarda sesión permanente en el dispositivo del cliente
+            setCurrentUserCi(ciNorm);
           };
 
           const currentUser = useMemo(
@@ -628,7 +742,7 @@
               setCheckoutAfterAuth(true);
               setIsCartOpen(false);
               setIsProfileModalOpen(true);
-              showToast('Por favor regístrate o inicia sesión para completar tu pedido', 'info');
+              showToast('Por favor regístrate o inicia sesión una sola vez para completar tu pedido', 'info');
               return;
             }
             completeOnlineOrder(currentUser);
@@ -807,7 +921,10 @@
           }
 
           return (
-            <div className="min-h-screen bg-slate-50 text-slate-800 font-sans flex flex-col">
+            <div
+              style={{ backgroundColor: brandPageBg }}
+              className="min-h-screen text-slate-800 font-sans flex flex-col transition-colors duration-200"
+            >
               {toast && (
                 <div className="fixed bottom-20 right-5 z-50 animate-bounce">
                   <div
@@ -825,6 +942,16 @@
                     <CheckCircle2 className="w-5 h-5 shrink-0" />
                     <span>{toast.message}</span>
                   </div>
+                </div>
+              )}
+
+              {/* Cintillo Promocional Superior Editable */}
+              {settings.topBannerActive && settings.topBannerText && (
+                <div
+                  style={{ backgroundColor: brandAccent }}
+                  className="text-slate-950 text-xs font-extrabold py-1.5 px-4 text-center tracking-wide shadow-2xs"
+                >
+                  {settings.topBannerText}
                 </div>
               )}
 
@@ -958,6 +1085,11 @@
                           setCheckoutAfterAuth(false);
                           setIsProfileModalOpen(true);
                         }}
+                        style={
+                          currentUser
+                            ? { borderColor: `${brandPrimary}60`, backgroundColor: `${brandPrimary}08` }
+                            : undefined
+                        }
                         className="flex items-center gap-2 px-3 py-2 rounded-xl border border-slate-200 hover:bg-slate-50 transition cursor-pointer"
                       >
                         {currentUser?.photo ? (
@@ -972,10 +1104,10 @@
                             style={{ backgroundColor: `${brandPrimary}20`, color: brandPrimary }}
                             className="w-7 h-7 rounded-full flex items-center justify-center font-bold text-xs"
                           >
-                            {currentUser ? currentUser.firstName[0] : <User className="w-4 h-4" />}
+                            {currentUser ? currentUser.firstName[0].toUpperCase() : <User className="w-4 h-4" />}
                           </div>
                         )}
-                        <div className="text-left hidden sm:block">
+                        <div className="text-left">
                           <p className="text-xs font-bold text-slate-800 leading-tight">
                             {currentUser ? `${currentUser.firstName}` : 'Ingresar / Registro'}
                           </p>
@@ -1021,6 +1153,7 @@
 
               {appMode === 'STORE' ? (
                 <main className="flex-1 max-w-7xl w-full mx-auto px-4 py-6 space-y-6">
+                  {/* Banner Principal Personalizable */}
                   <div
                     style={{
                       background: `linear-gradient(120deg, ${brandHeader} 0%, ${brandPrimary} 100%)`,
@@ -1033,17 +1166,16 @@
                         className="inline-flex items-center gap-1.5 text-slate-950 text-xs font-extrabold px-3 py-1 rounded-full uppercase tracking-wide"
                       >
                         <Tag className="w-3.5 h-3.5" />
-                        Precios al Mayor y al Detal
+                        {settings.heroBadgeText || 'Precios al Mayor y al Detal'}
                       </div>
                       <h2 className="text-2xl sm:text-4xl font-extrabold tracking-tight leading-tight">
-                        Haz tu compra completa sin salir de casa
+                        {settings.heroTitle || 'Haz tu compra completa sin salir de casa'}
                       </h2>
                       <p className="text-white/90 text-sm sm:text-base max-w-xl">
-                        Aprovecha descuentos automáticos llevando por cantidad y obtén{' '}
-                        <strong style={{ color: brandAccent }} className="underline">
-                          Delivery GRATIS desde {formatUsd(settings.freeDeliveryThreshold)}
-                        </strong>
-                        . Pagos digitales salen de inmediato; efectivo al recibir.
+                        {settings.heroSubtitle ||
+                          `Aprovecha descuentos automáticos llevando por cantidad y obtén Delivery GRATIS desde ${formatUsd(
+                            settings.freeDeliveryThreshold
+                          )}.`}
                       </p>
                       <div className="pt-2 flex flex-wrap gap-3">
                         <button
@@ -1123,7 +1255,11 @@
                       </button>
                     </div>
                   ) : (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+                    <div
+                      className={`grid ${
+                        mobileCols === 2 ? 'grid-cols-2' : 'grid-cols-1'
+                      } sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-5`}
+                    >
                       {filteredProducts.map((product) => {
                         const cartItem = cart.find((i) => i.productId === product.id);
                         const qtyInCart = cartItem ? cartItem.qty : 0;
@@ -1139,7 +1275,7 @@
                             }`}
                           >
                             <div>
-                              <div className="relative h-44 bg-gradient-to-b from-slate-50 to-slate-100/70 flex items-center justify-center border-b border-slate-100 overflow-hidden">
+                              <div className="relative h-36 sm:h-44 bg-gradient-to-b from-slate-50 to-slate-100/70 flex items-center justify-center border-b border-slate-100 overflow-hidden">
                                 {product.image ? (
                                   <img
                                     src={product.image}
@@ -1147,16 +1283,16 @@
                                     className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
                                   />
                                 ) : (
-                                  <span className="text-6xl select-none transform hover:scale-110 transition-transform">
+                                  <span className="text-5xl sm:text-6xl select-none transform hover:scale-110 transition-transform">
                                     {product.emoji || '📦'}
                                   </span>
                                 )}
 
-                                <div className="absolute top-3 left-3 flex flex-col gap-1.5">
+                                <div className="absolute top-2.5 left-2.5 flex flex-col gap-1">
                                   {product.isOffer && (
                                     <span
                                       style={{ backgroundColor: brandAccent }}
-                                      className="text-slate-950 text-[11px] font-extrabold px-2.5 py-0.5 rounded-full shadow-sm flex items-center gap-1"
+                                      className="text-slate-950 text-[10px] font-extrabold px-2 py-0.5 rounded-full shadow-sm flex items-center gap-1"
                                     >
                                       <Tag className="w-3 h-3" /> OFERTA
                                     </span>
@@ -1164,15 +1300,15 @@
                                   {isWholesaleActive && (
                                     <span
                                       style={{ backgroundColor: brandPrimary }}
-                                      className="text-white text-[11px] font-extrabold px-2.5 py-0.5 rounded-full shadow-sm"
+                                      className="text-white text-[10px] font-extrabold px-2 py-0.5 rounded-full shadow-sm"
                                     >
-                                      ¡PRECIO MAYOR APLICADO!
+                                      ¡MAYOR!
                                     </span>
                                   )}
                                 </div>
 
                                 <span
-                                  className={`absolute top-3 right-3 text-[11px] font-semibold px-2 py-0.5 rounded-lg shadow-2xs ${
+                                  className={`absolute top-2.5 right-2.5 text-[10px] font-semibold px-2 py-0.5 rounded-lg shadow-2xs ${
                                     outOfStock
                                       ? 'bg-red-100 text-red-700'
                                       : product.stock <= 10
@@ -1184,35 +1320,35 @@
                                 </span>
                               </div>
 
-                              <div className="p-4 space-y-3">
+                              <div className="p-3 sm:p-4 space-y-2.5">
                                 <div>
                                   <span
                                     style={{ color: brandPrimary }}
-                                    className="text-[11px] font-bold uppercase tracking-wider"
+                                    className="text-[10px] font-bold uppercase tracking-wider block truncate"
                                   >
                                     {product.department}
                                   </span>
-                                  <h4 className="font-bold text-slate-900 text-base leading-snug mt-0.5">
+                                  <h4 className="font-bold text-slate-900 text-xs sm:text-base leading-snug mt-0.5 line-clamp-2">
                                     {product.name}
                                   </h4>
-                                  <p className="text-xs text-slate-400 mt-0.5">{product.unit}</p>
+                                  <p className="text-[11px] text-slate-400 mt-0.5">{product.unit}</p>
                                 </div>
 
-                                <div className="space-y-2 pt-1">
+                                <div className="space-y-1.5 pt-0.5">
                                   <div
-                                    className={`p-2.5 rounded-xl border ${
+                                    className={`p-2 rounded-xl border ${
                                       !isWholesaleActive
                                         ? 'bg-slate-50 border-slate-200'
                                         : 'bg-slate-50/40 border-slate-100 opacity-60'
                                     }`}
                                   >
-                                    <div className="flex items-baseline justify-between">
-                                      <span className="text-xs font-medium text-slate-500">Al Detal:</span>
+                                    <div className="flex items-baseline justify-between gap-1">
+                                      <span className="text-[11px] font-medium text-slate-500">Detal:</span>
                                       <div className="text-right">
-                                        <span className="text-lg font-extrabold text-slate-900">
+                                        <span className="text-sm sm:text-lg font-extrabold text-slate-900">
                                           {formatUsd(product.retailPrice)}
                                         </span>
-                                        <span className="block text-xs font-semibold text-slate-500">
+                                        <span className="block text-[10px] sm:text-xs font-semibold text-slate-500">
                                           {formatBs(product.retailPrice * settings.exchangeRate)}
                                         </span>
                                       </div>
@@ -1228,27 +1364,27 @@
                                           }
                                         : undefined
                                     }
-                                    className={`p-2.5 rounded-xl border ${
+                                    className={`p-2 rounded-xl border ${
                                       isWholesaleActive ? '' : 'bg-slate-50/50 border-slate-200/70'
                                     }`}
                                   >
-                                    <div className="flex items-baseline justify-between">
+                                    <div className="flex items-baseline justify-between gap-1">
                                       <span
                                         style={{ color: brandPrimary }}
-                                        className="text-xs font-bold"
+                                        className="text-[10px] sm:text-xs font-bold"
                                       >
-                                        Al Mayor ({product.wholesaleMinQty}+ und):
+                                        Mayor ({product.wholesaleMinQty}+):
                                       </span>
                                       <div className="text-right">
                                         <span
                                           style={{ color: brandPrimary }}
-                                          className="text-base font-extrabold"
+                                          className="text-xs sm:text-base font-extrabold"
                                         >
                                           {formatUsd(product.wholesalePrice)}
                                         </span>
                                         <span
                                           style={{ color: brandPrimary }}
-                                          className="block text-[11px] font-semibold opacity-85"
+                                          className="block text-[10px] font-semibold opacity-85"
                                         >
                                           {formatBs(product.wholesalePrice * settings.exchangeRate)}
                                         </span>
@@ -1259,25 +1395,25 @@
                               </div>
                             </div>
 
-                            <div className="p-4 pt-0">
+                            <div className="p-3 sm:p-4 pt-0">
                               {outOfStock ? (
                                 <button
                                   disabled
-                                  className="w-full py-2.5 rounded-xl bg-slate-100 text-slate-400 font-semibold text-sm cursor-not-allowed"
+                                  className="w-full py-2 rounded-xl bg-slate-100 text-slate-400 font-semibold text-xs sm:text-sm cursor-not-allowed"
                                 >
-                                  Producto Agotado
+                                  Agotado
                                 </button>
                               ) : qtyInCart === 0 ? (
                                 <button
                                   onClick={() => addToCart(product.id, 1)}
                                   style={{ backgroundColor: brandPrimary }}
-                                  className="w-full py-2.5 px-4 rounded-xl hover:opacity-95 active:scale-[0.99] text-white font-bold text-sm shadow-sm transition flex items-center justify-center gap-2 cursor-pointer"
+                                  className="w-full py-2 sm:py-2.5 px-3 rounded-xl hover:opacity-95 active:scale-[0.99] text-white font-bold text-xs sm:text-sm shadow-sm transition flex items-center justify-center gap-1.5 cursor-pointer"
                                 >
-                                  <Plus className="w-4 h-4" />
-                                  Agregar al Carrito
+                                  <Plus className="w-4 h-4 shrink-0" />
+                                  <span>Agregar</span>
                                 </button>
                               ) : (
-                                <div className="space-y-1.5">
+                                <div className="space-y-1">
                                   <div
                                     style={{
                                       backgroundColor: `${brandPrimary}12`,
@@ -1288,17 +1424,17 @@
                                     <button
                                       onClick={() => addToCart(product.id, -1)}
                                       style={{ color: brandPrimary }}
-                                      className="w-9 h-9 rounded-lg bg-white hover:bg-slate-50 flex items-center justify-center shadow-sm transition cursor-pointer"
+                                      className="w-8 h-8 rounded-lg bg-white hover:bg-slate-50 flex items-center justify-center shadow-sm transition cursor-pointer"
                                     >
-                                      <Minus className="w-4 h-4" />
+                                      <Minus className="w-3.5 h-3.5" />
                                     </button>
                                     <div className="text-center">
-                                      <span className="font-extrabold text-slate-900 text-base">
+                                      <span className="font-extrabold text-slate-900 text-sm">
                                         {qtyInCart}
                                       </span>
                                       <span
                                         style={{ color: brandPrimary }}
-                                        className="block text-[10px] font-semibold leading-none"
+                                        className="block text-[9px] font-semibold leading-none"
                                       >
                                         en carrito
                                       </span>
@@ -1307,14 +1443,14 @@
                                       onClick={() => addToCart(product.id, 1)}
                                       disabled={qtyInCart >= product.stock}
                                       style={{ backgroundColor: brandPrimary }}
-                                      className="w-9 h-9 rounded-lg text-white hover:opacity-95 disabled:opacity-40 flex items-center justify-center shadow-sm transition cursor-pointer"
+                                      className="w-8 h-8 rounded-lg text-white hover:opacity-95 disabled:opacity-40 flex items-center justify-center shadow-sm transition cursor-pointer"
                                     >
-                                      <Plus className="w-4 h-4" />
+                                      <Plus className="w-3.5 h-3.5" />
                                     </button>
                                   </div>
                                   {!isWholesaleActive && (
-                                    <p className="text-[11px] text-center text-amber-700 font-medium">
-                                      ¡Agrega {product.wholesaleMinQty - qtyInCart} más para precio al mayor!
+                                    <p className="text-[10px] text-center text-amber-700 font-medium leading-tight">
+                                      +{product.wholesaleMinQty - qtyInCart} para mayor
                                     </p>
                                   )}
                                 </div>
@@ -1633,9 +1769,7 @@
                   onClose={() => setIsSupportModalOpen(false)}
                   settings={settings}
                   currentUser={currentUser}
-                  customers={customers}
-                  setCustomers={setCustomers}
-                  setCurrentUserCi={setCurrentUserCi}
+                  saveCustomerToCloudAndSession={saveCustomerToCloudAndSession}
                   showToast={showToast}
                 />
               )}
@@ -1649,7 +1783,7 @@
                   }}
                   currentUser={currentUser}
                   customers={customers}
-                  setCustomers={setCustomers}
+                  saveCustomerToCloudAndSession={saveCustomerToCloudAndSession}
                   setCurrentUserCi={setCurrentUserCi}
                   sales={sales}
                   checkoutAfterAuth={checkoutAfterAuth}
@@ -1740,7 +1874,7 @@
                         </div>
                         <div>
                           <h3 className="font-extrabold text-slate-900">Acceso Administrativo</h3>
-                          <p className="text-xs text-slate-500">POS Caja, Inventario y Marca</p>
+                          <p className="text-xs text-slate-500">POS Caja, Inventario y Diseño</p>
                         </div>
                       </div>
                       <button
@@ -1801,9 +1935,7 @@
           onClose,
           settings,
           currentUser,
-          customers,
-          setCustomers,
-          setCurrentUserCi,
+          saveCustomerToCloudAndSession,
           showToast,
         }) {
           const [reason, setReason] = useState('Consulta General sobre Productos');
@@ -1852,14 +1984,8 @@
                 createdAt: new Date().toISOString(),
               };
 
-              setCustomers((prev) => {
-                const exists = prev.some((c) => c.ci === formattedCi);
-                return exists
-                  ? prev.map((c) => (c.ci === formattedCi ? clientProfile : c))
-                  : [clientProfile, ...prev];
-              });
-              setCurrentUserCi(formattedCi);
-              showToast('Datos guardados y redirigiendo a WhatsApp');
+              saveCustomerToCloudAndSession(clientProfile);
+              showToast('Datos guardados permanentemente y redirigiendo a WhatsApp');
             }
 
             const supportText =
@@ -1917,7 +2043,7 @@
                         style={{ color: brandPrimary }}
                         className="text-[11px] font-extrabold uppercase block"
                       >
-                        ✓ Datos que se adjuntarán automáticamente:
+                        ✓ Datos guardados que se adjuntarán automáticamente:
                       </span>
                       <p className="font-bold text-slate-900 text-sm">
                         {currentUser.firstName} {currentUser.lastName} ({currentUser.ci})
@@ -1929,7 +2055,7 @@
                   ) : (
                     <div className="space-y-3 bg-slate-50 p-3.5 rounded-2xl border border-slate-200">
                       <p className="font-bold text-slate-700">
-                        Completa tus datos una sola vez para identificarte en WhatsApp:
+                        Completa tus datos una sola vez (quedarán guardados para futuras visitas):
                       </p>
                       <div className="grid grid-cols-2 gap-2.5">
                         <input
@@ -2029,7 +2155,7 @@
           onClose,
           currentUser,
           customers,
-          setCustomers,
+          saveCustomerToCloudAndSession,
           setCurrentUserCi,
           sales,
           checkoutAfterAuth,
@@ -2039,6 +2165,7 @@
         }) {
           const [authTab, setAuthTab] = useState('REGISTER');
           const [loginCi, setLoginCi] = useState('');
+          const [isSearchingCloud, setIsSearchingCloud] = useState(false);
           const [formData, setFormData] = useState({
             firstName: currentUser?.firstName || '',
             lastName: currentUser?.lastName || '',
@@ -2050,19 +2177,20 @@
           const [errorMsg, setErrorMsg] = useState('');
           const fileInputRef = useRef(null);
 
-          const handlePhotoUpload = (e) => {
+          const handlePhotoUpload = async (e) => {
             const file = e.target.files?.[0];
             if (!file) return;
             if (!file.type.startsWith('image/')) {
               setErrorMsg('Por favor selecciona una imagen válida (JPG o PNG).');
               return;
             }
-            const reader = new FileReader();
-            reader.onload = () => {
-              setFormData((prev) => ({ ...prev, photo: reader.result }));
+            try {
+              const compressed = await compressImageFile(file, 260, 0.78);
+              setFormData((prev) => ({ ...prev, photo: compressed }));
               showToast('Foto cargada correctamente');
-            };
-            reader.readAsDataURL(file);
+            } catch (err) {
+              setErrorMsg('No se pudo procesar la foto.');
+            }
           };
 
           const handleRegisterOrUpdate = (e) => {
@@ -2070,7 +2198,13 @@
             setErrorMsg('');
 
             const cleanCi = formData.ci.trim().toUpperCase();
-            if (!formData.firstName.trim() || !formData.lastName.trim() || !cleanCi || !formData.phone.trim() || !formData.address.trim()) {
+            if (
+              !formData.firstName.trim() ||
+              !formData.lastName.trim() ||
+              !cleanCi ||
+              !formData.phone.trim() ||
+              !formData.address.trim()
+            ) {
               setErrorMsg('Todos los campos son obligatorios para coordinar tu entrega.');
               return;
             }
@@ -2087,16 +2221,12 @@
               createdAt: currentUser?.createdAt || new Date().toISOString(),
             };
 
-            setCustomers((prev) => {
-              const exists = prev.some((c) => c.ci === formattedCi);
-              if (exists) {
-                return prev.map((c) => (c.ci === formattedCi ? customerRecord : c));
-              }
-              return [customerRecord, ...prev];
-            });
-
-            setCurrentUserCi(formattedCi);
-            showToast(currentUser ? 'Perfil actualizado' : `¡Bienvenido ${customerRecord.firstName}!`);
+            saveCustomerToCloudAndSession(customerRecord);
+            showToast(
+              currentUser
+                ? 'Perfil actualizado y guardado en la nube'
+                : `¡Bienvenido ${customerRecord.firstName}! Tu cuenta quedó guardada.`
+            );
 
             if (checkoutAfterAuth) {
               onAuthSuccessAndCheckout(customerRecord);
@@ -2105,20 +2235,43 @@
             }
           };
 
-          const handleLoginByCi = (e) => {
+          const handleLoginByCi = async (e) => {
             e.preventDefault();
             setErrorMsg('');
             const clean = loginCi.trim().toUpperCase();
+            if (!clean) {
+              setErrorMsg('Por favor escribe tu número de Cédula.');
+              return;
+            }
             const formatted = /^[VEJ]-/.test(clean) ? clean : `V-${clean.replace(/\D/g, '')}`;
-            const found = customers.find((c) => c.ci === formatted);
+
+            let found = customers.find((c) => c.ci === formatted);
+
+            // Si no está en la lista local inmediata, consultar colección 'clientes' en Firebase
+            if (!found && db) {
+              setIsSearchingCloud(true);
+              try {
+                const snap = await getDoc(doc(db, 'clientes', formatted));
+                if (snap.exists()) {
+                  found = snap.data();
+                  saveCustomerToCloudAndSession(found);
+                }
+              } catch (err) {
+                console.error('Error buscando cédula en Firebase:', err);
+              } finally {
+                setIsSearchingCloud(false);
+              }
+            }
 
             if (!found) {
-              setErrorMsg('No encontramos esa Cédula registrada. Regístrate en 30 segundos en la pestaña "Soy Nuevo".');
+              setErrorMsg(
+                'No encontramos esa Cédula registrada. Toca "Soy Nuevo (Registrarme)" para registrarte una sola vez.'
+              );
               return;
             }
 
             setCurrentUserCi(found.ci);
-            showToast(`¡Hola de nuevo, ${found.firstName}!`);
+            showToast(`¡Hola de nuevo, ${found.firstName}! Sesión guardada.`);
             if (checkoutAfterAuth) {
               onAuthSuccessAndCheckout(found);
             } else {
@@ -2145,7 +2298,7 @@
                     <p className="text-xs text-white/85">
                       {checkoutAfterAuth
                         ? 'Completa tus datos una sola vez para enviar tu pedido'
-                        : 'Tus datos quedan guardados para futuras compras'}
+                        : 'Tus datos quedan guardados permanentemente en este dispositivo y en la nube'}
                     </p>
                   </div>
                   <button
@@ -2210,14 +2363,16 @@
                           className="w-full px-4 py-3 border border-slate-300 rounded-xl text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-500"
                         />
                         <p className="text-[11px] text-slate-400 mt-1">
-                          Prueba con: <strong>V-18456789</strong> o registra tu propia cédula.
+                          Al ingresar una vez, tu cuenta quedará abierta automáticamente en este navegador.
                         </p>
                       </div>
                       <button
                         type="submit"
-                        className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold rounded-xl text-sm shadow-md transition cursor-pointer"
+                        disabled={isSearchingCloud}
+                        style={{ backgroundColor: brandPrimary }}
+                        className="w-full py-3 hover:opacity-95 text-white font-extrabold rounded-xl text-sm shadow-md transition cursor-pointer"
                       >
-                        Ingresar a mi Cuenta
+                        {isSearchingCloud ? 'Buscando en la nube...' : 'Ingresar a mi Cuenta'}
                       </button>
                     </form>
                   ) : (
@@ -2450,7 +2605,7 @@
                   { id: 'INVENTORY', label: 'Inventario, Fotos y Rubros', icon: Package },
                   { id: 'CASH', label: 'Control de Caja', icon: Wallet },
                   { id: 'STATS', label: 'Ventas, Ganancias y Clientes', icon: BarChart3 },
-                  { id: 'SETTINGS', label: 'Marca, Colores, Tasa y PIN', icon: Settings },
+                  { id: 'SETTINGS', label: 'Diseño, Colores, Tasa y PIN', icon: Palette },
                 ].map((tab) => {
                   const Icon = tab.icon;
                   const active = adminTab === tab.id;
@@ -3892,11 +4047,12 @@
         }
 
         const COLOR_PRESETS = [
-          { name: 'Esmeralda Clásico', primary: '#059669', accent: '#f59e0b', header: '#064e3b' },
-          { name: 'Azul Corporativo', primary: '#2563eb', accent: '#f59e0b', header: '#1e3a8a' },
-          { name: 'Rojo Comercial', primary: '#dc2626', accent: '#fbbf24', header: '#7f1d1d' },
-          { name: 'Morado Moderno', primary: '#7c3aed', accent: '#10b981', header: '#4c1d95' },
-          { name: 'Naranja Energético', primary: '#ea580c', accent: '#0ea5e9', header: '#7c2d12' },
+          { name: 'Esmeralda Clásico', primary: '#059669', accent: '#f59e0b', header: '#064e3b', bg: '#f8fafc' },
+          { name: 'Azul Corporativo', primary: '#2563eb', accent: '#f59e0b', header: '#1e3a8a', bg: '#f1f5f9' },
+          { name: 'Rojo Comercial', primary: '#dc2626', accent: '#fbbf24', header: '#7f1d1d', bg: '#fef2f2' },
+          { name: 'Morado Moderno', primary: '#7c3aed', accent: '#10b981', header: '#4c1d95', bg: '#faf5ff' },
+          { name: 'Naranja Energético', primary: '#ea580c', accent: '#0ea5e9', header: '#7c2d12', bg: '#fff7ed' },
+          { name: 'Dorado & Negro Lujo', primary: '#b45309', accent: '#f59e0b', header: '#09090b', bg: '#fafaf9' },
         ];
 
         function StoreSettingsTab({ settings, setSettings, showToast }) {
@@ -3904,13 +4060,17 @@
           const [showAdminPin, setShowAdminPin] = useState(false);
           const logoInputRef = useRef(null);
 
+          useEffect(() => {
+            setForm(settings);
+          }, [settings]);
+
           const handleLogoUpload = async (e) => {
             const file = e.target.files?.[0];
             if (!file) return;
             try {
               const compressedLogo = await compressImageFile(file, 300, 0.85);
               setForm((prev) => ({ ...prev, storeLogo: compressedLogo }));
-              showToast('Logo cargado. Haz clic en Guardar Configuración para aplicarlo.');
+              showToast('Logo cargado. Haz clic en Guardar Diseño y Configuración para aplicarlo.');
             } catch (err) {
               showToast('No se pudo cargar el logo', 'error');
             }
@@ -3928,28 +4088,70 @@
               exchangeRate: Math.max(1, Number(form.exchangeRate)),
               freeDeliveryThreshold: Math.max(0, Number(form.freeDeliveryThreshold)),
               deliveryFee: Math.max(0, Number(form.deliveryFee)),
+              mobileColumns: Number(form.mobileColumns) === 1 ? 1 : 2,
               adminPin: form.adminPin.trim(),
             });
-            showToast('Marca, colores, tasa y configuración guardados en la nube');
+            showToast('✅ ¡Diseño, colores, textos y configuración guardados en la nube!');
           };
 
           return (
-            <div className="max-w-3xl bg-white rounded-3xl border border-slate-200 p-6 shadow-xs space-y-6">
-              <div>
-                <h2 className="text-lg font-extrabold text-slate-900">
-                  Identidad Visual, Colores, Tasa y Seguridad
-                </h2>
-                <p className="text-xs text-slate-500">
-                  Personaliza el logo, los colores de la tienda, la tasa del día y tu contraseña de
-                  administrador
-                </p>
+            <div className="max-w-4xl bg-white rounded-3xl border border-slate-200 p-6 shadow-xs space-y-6">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <h2 className="text-lg font-extrabold text-slate-900">
+                    Editor Visual de Interfaz, Marca, Tasa y Seguridad
+                  </h2>
+                  <p className="text-xs text-slate-500">
+                    Edita los colores, textos de portada, cintillo de anuncios, columnas en móvil, logo y tasa con 1 clic
+                  </p>
+                </div>
+              </div>
+
+              {/* Vista Previa Rápida en Vivo */}
+              <div className="rounded-2xl border border-slate-200 overflow-hidden shadow-xs">
+                {form.topBannerActive && (
+                  <div
+                    style={{ backgroundColor: form.accentColor || '#f59e0b' }}
+                    className="text-slate-950 text-[11px] font-extrabold py-1 px-3 text-center"
+                  >
+                    {form.topBannerText || 'Cintillo promocional superior'}
+                  </div>
+                )}
+                <div
+                  style={{
+                    background: `linear-gradient(120deg, ${form.headerColor || '#064e3b'} 0%, ${
+                      form.primaryColor || '#059669'
+                    } 100%)`,
+                  }}
+                  className="p-4 text-white flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                >
+                  <div className="space-y-1">
+                    <span
+                      style={{ backgroundColor: form.accentColor || '#f59e0b' }}
+                      className="inline-block text-slate-950 text-[10px] font-extrabold px-2.5 py-0.5 rounded-full uppercase"
+                    >
+                      {form.heroBadgeText || 'Etiqueta Superior'}
+                    </span>
+                    <h4 className="font-extrabold text-base leading-tight">
+                      {form.heroTitle || 'Título Principal de Portada'}
+                    </h4>
+                    <p className="text-xs text-white/85 line-clamp-1">
+                      {form.heroSubtitle || 'Subtítulo descriptivo de la tienda'}
+                    </p>
+                  </div>
+                  <div className="shrink-0 bg-white/15 backdrop-blur-xs px-3 py-2 rounded-xl border border-white/20 text-xs">
+                    <span className="block text-[10px] uppercase text-white/75">Vista Previa</span>
+                    <strong>{form.storeName}</strong>
+                  </div>
+                </div>
               </div>
 
               <form onSubmit={handleSaveSettings} className="space-y-6 text-sm">
+                {/* 1. Logo y Datos */}
                 <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-4">
                   <h3 className="text-xs font-extrabold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
                     <ImageIcon className="w-4 h-4 text-emerald-600" />
-                    1. Logo y Datos de la Tienda
+                    1. Logo e Identidad del Negocio
                   </h3>
 
                   <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
@@ -4025,11 +4227,93 @@
                   </div>
                 </div>
 
+                {/* 2. Textos de Portada y Cintillo de Anuncios */}
+                <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-4">
+                  <h3 className="text-xs font-extrabold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+                    <Megaphone className="w-4 h-4 text-emerald-600" />
+                    2. Textos de Portada, Banner y Diseño Móvil
+                  </h3>
+
+                  <div className="bg-white p-3.5 rounded-xl border border-slate-200 space-y-2.5">
+                    <label className="flex items-center gap-2 text-xs font-extrabold text-slate-800 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={Boolean(form.topBannerActive)}
+                        onChange={(e) => setForm({ ...form, topBannerActive: e.target.checked })}
+                        className="w-4 h-4 accent-emerald-600"
+                      />
+                      Activar cintillo de anuncios arriba de la página
+                    </label>
+                    {form.topBannerActive && (
+                      <input
+                        type="text"
+                        value={form.topBannerText || ''}
+                        onChange={(e) => setForm({ ...form, topBannerText: e.target.value })}
+                        placeholder="Ej: 🚀 ¡Delivery GRATIS hoy por compras mayores a $10!"
+                        className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs font-semibold"
+                      />
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">
+                        Etiqueta del Banner Principal
+                      </label>
+                      <input
+                        type="text"
+                        value={form.heroBadgeText || ''}
+                        onChange={(e) => setForm({ ...form, heroBadgeText: e.target.value })}
+                        className="w-full px-3 py-2 border border-slate-300 rounded-xl bg-white text-xs font-semibold"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1 flex items-center gap-1">
+                        <LayoutGrid className="w-3.5 h-3.5 text-slate-500" />
+                        Productos por fila en Celular
+                      </label>
+                      <select
+                        value={form.mobileColumns || 2}
+                        onChange={(e) => setForm({ ...form, mobileColumns: Number(e.target.value) })}
+                        className="w-full px-3 py-2 border border-slate-300 rounded-xl bg-white text-xs font-bold"
+                      >
+                        <option value={2}>2 productos por fila (Catálogo compacto)</option>
+                        <option value={1}>1 producto por fila (Tarjetas grandes)</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                      Título Principal de Bienvenida
+                    </label>
+                    <input
+                      type="text"
+                      value={form.heroTitle || ''}
+                      onChange={(e) => setForm({ ...form, heroTitle: e.target.value })}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-xl bg-white text-xs font-bold"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                      Descripción / Mensaje de Delivery del Banner
+                    </label>
+                    <textarea
+                      rows={2}
+                      value={form.heroSubtitle || ''}
+                      onChange={(e) => setForm({ ...form, heroSubtitle: e.target.value })}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-xl bg-white text-xs"
+                    />
+                  </div>
+                </div>
+
+                {/* 3. Paleta de Colores */}
                 <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-4">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <h3 className="text-xs font-extrabold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
                       <Palette className="w-4 h-4 text-emerald-600" />
-                      2. Paleta de Colores de la Tienda
+                      3. Paleta de Colores de la Interfaz
                     </h3>
                     <div className="flex flex-wrap gap-1.5">
                       {COLOR_PRESETS.map((preset) => (
@@ -4042,6 +4326,7 @@
                               primaryColor: preset.primary,
                               accentColor: preset.accent,
                               headerColor: preset.header,
+                              pageBgColor: preset.bg,
                             })
                           }
                           className="px-2.5 py-1 rounded-lg bg-white border border-slate-200 hover:border-slate-400 text-[11px] font-bold flex items-center gap-1.5 cursor-pointer"
@@ -4056,48 +4341,62 @@
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                     <div className="bg-white p-3 rounded-xl border border-slate-200 flex items-center justify-between">
                       <div>
-                        <p className="text-xs font-bold text-slate-800">Color Primario</p>
-                        <p className="text-[10px] text-slate-400">Botones y precios</p>
+                        <p className="text-xs font-bold text-slate-800">Primario</p>
+                        <p className="text-[10px] text-slate-400">Botones</p>
                       </div>
                       <input
                         type="color"
                         value={form.primaryColor || '#059669'}
                         onChange={(e) => setForm({ ...form, primaryColor: e.target.value })}
-                        className="w-10 h-10 rounded-lg cursor-pointer border-0"
+                        className="w-9 h-9 rounded-lg cursor-pointer border-0"
                       />
                     </div>
 
                     <div className="bg-white p-3 rounded-xl border border-slate-200 flex items-center justify-between">
                       <div>
-                        <p className="text-xs font-bold text-slate-800">Color Acento</p>
-                        <p className="text-[10px] text-slate-400">Ofertas y contador</p>
+                        <p className="text-xs font-bold text-slate-800">Acento</p>
+                        <p className="text-[10px] text-slate-400">Ofertas</p>
                       </div>
                       <input
                         type="color"
                         value={form.accentColor || '#f59e0b'}
                         onChange={(e) => setForm({ ...form, accentColor: e.target.value })}
-                        className="w-10 h-10 rounded-lg cursor-pointer border-0"
+                        className="w-9 h-9 rounded-lg cursor-pointer border-0"
                       />
                     </div>
 
                     <div className="bg-white p-3 rounded-xl border border-slate-200 flex items-center justify-between">
                       <div>
-                        <p className="text-xs font-bold text-slate-800">Barra Superior</p>
-                        <p className="text-[10px] text-slate-400">Encabezado y banner</p>
+                        <p className="text-xs font-bold text-slate-800">Encabezado</p>
+                        <p className="text-[10px] text-slate-400">Barra top</p>
                       </div>
                       <input
                         type="color"
                         value={form.headerColor || '#064e3b'}
                         onChange={(e) => setForm({ ...form, headerColor: e.target.value })}
-                        className="w-10 h-10 rounded-lg cursor-pointer border-0"
+                        className="w-9 h-9 rounded-lg cursor-pointer border-0"
+                      />
+                    </div>
+
+                    <div className="bg-white p-3 rounded-xl border border-slate-200 flex items-center justify-between">
+                      <div>
+                        <p className="text-xs font-bold text-slate-800">Fondo</p>
+                        <p className="text-[10px] text-slate-400">Página</p>
+                      </div>
+                      <input
+                        type="color"
+                        value={form.pageBgColor || '#f8fafc'}
+                        onChange={(e) => setForm({ ...form, pageBgColor: e.target.value })}
+                        className="w-9 h-9 rounded-lg cursor-pointer border-0"
                       />
                     </div>
                   </div>
                 </div>
 
+                {/* 4. Tasa, Delivery y Seguridad */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-xs font-bold text-emerald-700 mb-1">
@@ -4190,9 +4489,9 @@
                   <button
                     type="submit"
                     style={{ backgroundColor: form.primaryColor || '#059669' }}
-                    className="px-6 py-3 hover:opacity-95 text-white font-extrabold rounded-xl shadow-md transition cursor-pointer"
+                    className="w-full sm:w-auto px-8 py-3.5 hover:opacity-95 text-white font-extrabold rounded-xl shadow-md transition cursor-pointer"
                   >
-                    Guardar Configuración y Marca
+                    💾 Guardar Diseño, Colores y Configuración
                   </button>
                 </div>
               </form>
