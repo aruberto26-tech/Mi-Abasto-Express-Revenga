@@ -460,7 +460,7 @@ import React, { useState, useMemo, useRef, useEffect } from 'react';
               setCloudData(initial);
             }
             setIsCloudLoaded(true);
-          });
+    
           return () => unsubscribe();
         }, []);
 
@@ -4170,8 +4170,7 @@ const [cloudData, setCloudData] = useState(null);
           );
         }
 
-        const root = createRoot(document.getElementById('root'));
-        root.render(<App />);
-    </script>
-</body>
-</html>
+        const root = createRoot(document.getElementById('root')).render(<App />);
+      </script>
+    </body>
+    </html>
