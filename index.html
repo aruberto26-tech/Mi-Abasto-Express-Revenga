@@ -22,34 +22,6 @@
     <div id="root"></div>
 
     <script type="text/babel" data-type="module">
-        // For Firebase JS SDK v7.20.0 and later, measurementId is optional
-import React, { useState, useMemo, useRef, useEffect } from 'react';
-        import { createRoot } from 'react-dom/client';
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-        import {
-          ShoppingBag, ShoppingCart, Plus, Minus, Trash2, Search, CheckCircle2,
-          DollarSign, Truck, MessageCircle, Lock, Store, Tag, User, Camera,
-          LogOut, Check, Package, Wallet, BarChart3, Settings, Edit3,
-          ArrowUpRight, ArrowDownRight, Copy, Receipt, RefreshCw, Eye,
-          EyeOff, Palette, Image as ImageIcon, Headphones, FolderPlus,
-          ShieldCheck, Info, CreditCard, X
-        } from 'https://esm.sh/lucide-react@0.294.0';
-
-        const firebaseConfig = {
-          apiKey: "AIzaSyDDFPbQs-EqkxFBSDHb0luljkLiU0pw34U",
-          authDomain: "mi-abasto-express.firebaseapp.com",
-          projectId: "mi-abasto-express",
-          storageBucket: "mi-abasto-express.appspot.com",
-          messagingSenderId: "312591917828",
-          appId: "1:312591917828:web:69124367a59f718f88a651",
-          measurementId: "G-MLC4ZSF088"
-        };
-
-        const app = initializeApp(firebaseConfig);
-        const db = getFirestore(app);
-        const auth = getAuth(app);
         import React, { useState, useMemo, useRef } from 'react';
         import { createRoot } from 'react-dom/client';
         import {
@@ -437,60 +409,18 @@ import React, { useState, useMemo, useRef, useEffect } from 'react';
 
           return [storedValue, setValue];
         }
-        // CONEXIÓN CLOUD FIREBASE EN TIEMPO REAL
-        const [cloudData, setCloudData] = useState(null);
-        const [isCloudLoaded, setIsCloudLoaded] = useState(false);
-
-        useEffect(() => {
-          signInAnonymously(auth).catch(() => {});
-          const docRef = doc(db, "abasto_data", "main_store");
-          const unsubscribe = onSnapshot(docRef, (docSnap) => {
-            if (docSnap.exists()) {
-              setCloudData(docSnap.data());
-            } else {
-              const initial = {
-                settings: INITIAL_SETTINGS,
-                departments: INITIAL_DEPARTMENTS,
-                products: INITIAL_PRODUCTS,
-                customers: INITIAL_CUSTOMERS,
-                sales: INITIAL_SALES,
-                cashMovements: INITIAL_CASH_MOVEMENTS
-              };
-              setDoc(docRef, initial);
-              setCloudData(initial);
-            }
-            setIsCloudLoaded(true);
-    
-          return () => unsubscribe();
-        }, []);
 
         // ============================================================================
         // COMPONENTE PRINCIPAL: APP
         // ============================================================================
         function App() {
-            
-const [cloudData, setCloudData] = useState(null);
-          const [isCloudLoaded, setIsCloudLoaded] = useState(false);
-
-          const settings = cloudData?.settings || INITIAL_SETTINGS;
-          const setSettings = (newVal) => updateCloud({ settings: typeof newVal === 'function' ? newVal(settings) : newVal });
-
-          const departments = cloudData?.departments || INITIAL_DEPARTMENTS;
-          const setDepartments = (newVal) => updateCloud({ departments: typeof newVal === 'function' ? newVal(departments) : newVal });
-
-          const products = cloudData?.products || INITIAL_PRODUCTS;
-          const setProducts = (newVal) => updateCloud({ products: typeof newVal === 'function' ? newVal(products) : newVal });
-
-          const customers = cloudData?.customers || INITIAL_CUSTOMERS;
-          const setCustomers = (newVal) => updateCloud({ customers: typeof newVal === 'function' ? newVal(customers) : newVal });
-
-          const sales = cloudData?.sales || INITIAL_SALES;
-          const setSales = (newVal) => updateCloud({ sales: typeof newVal === 'function' ? newVal(sales) : newVal });
-
-          const cashMovements = cloudData?.cashMovements || INITIAL_CASH_MOVEMENTS;
-          const setCashMovements = (newVal) => updateCloud({ cashMovements: typeof newVal === 'function' ? newVal(cashMovements) : newVal });
-
-          const [currentUserCi, setCurrentUserCi] = useState(null);
+          const [settings, setSettings] = useLocalStorage('abasto_settings_v2', INITIAL_SETTINGS);
+          const [departments, setDepartments] = useLocalStorage('abasto_departments_v2', INITIAL_DEPARTMENTS);
+          const [products, setProducts] = useLocalStorage('abasto_products_v2', INITIAL_PRODUCTS);
+          const [customers, setCustomers] = useLocalStorage('abasto_customers_v2', INITIAL_CUSTOMERS);
+          const [sales, setSales] = useLocalStorage('abasto_sales_v2', INITIAL_SALES);
+          const [cashMovements, setCashMovements] = useLocalStorage('abasto_cash_v2', INITIAL_CASH_MOVEMENTS);
+          const [currentUserCi, setCurrentUserCi] = useLocalStorage('abasto_current_user_ci_v2', null);
 
           const [appMode, setAppMode] = useState('STORE');
           const [isAdminUnlocked, setIsAdminUnlocked] = useState(false);
@@ -4170,7 +4100,8 @@ const [cloudData, setCloudData] = useState(null);
           );
         }
 
-        const root = createRoot(document.getElementById('root')).render(<App />);
-      </script>
-    </body>
-    </html>
+        const root = createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
