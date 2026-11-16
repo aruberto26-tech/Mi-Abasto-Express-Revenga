@@ -88,7 +88,15 @@
           X,
           LayoutGrid,
           Sparkles,
-          Megaphone
+          Megaphone,
+          Scale,
+          Droplets,
+          FileText,
+          Clock,
+          XCircle,
+          AlertTriangle,
+          ZoomIn,
+          ClipboardList
         } from 'lucide-react';
 
         const { doc, getDoc, setDoc, onSnapshot, signInAnonymously } = window.firebaseFirestoreFns;
@@ -138,6 +146,48 @@
         }
 
         // ============================================================================
+        // UTILIDADES PARA UNIDADES (UNIDAD / KG / LT) Y FORMATO
+        // ============================================================================
+        const formatUsd = (val) => `$${Number(val || 0).toFixed(2)}`;
+        const formatBs = (val) =>
+          `Bs. ${Number(val || 0).toLocaleString('es-VE', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          })}`;
+
+        const round3 = (n) => Math.round((Number(n) || 0) * 1000) / 1000;
+
+        // saleMode: 'UNIT' | 'WEIGHT' (Kg/g) | 'VOLUME' (Lt/mL)
+        function getProductSaleMode(p) {
+          if (p?.saleMode === 'WEIGHT' || p?.saleMode === 'VOLUME' || p?.saleMode === 'UNIT') {
+            return p.saleMode;
+          }
+          const u = String(p?.unit || '').toLowerCase();
+          if (u === 'kilogramo' || u === 'kg' || u.includes('por kg')) return 'WEIGHT';
+          if (u === 'litro' || u === 'lt' || u.includes('por lt') || u.includes('por litro')) return 'VOLUME';
+          return 'UNIT';
+        }
+
+        function formatMeasureQty(qty, saleMode) {
+          const q = round3(qty);
+          if (saleMode === 'WEIGHT') {
+            if (q < 1) return `${Math.round(q * 1000)}g`;
+            return `${q.toFixed(q % 1 === 0 ? 0 : 3).replace(/\.?0+$/, '')} Kg`;
+          }
+          if (saleMode === 'VOLUME') {
+            if (q < 1) return `${Math.round(q * 1000)}mL`;
+            return `${q.toFixed(q % 1 === 0 ? 0 : 3).replace(/\.?0+$/, '')} Lt`;
+          }
+          return `${q} und`;
+        }
+
+        function formatBasePriceLabel(saleMode) {
+          if (saleMode === 'WEIGHT') return 'x 1 Kg';
+          if (saleMode === 'VOLUME') return 'x 1 Lt';
+          return 'c/u';
+        }
+
+        // ============================================================================
         // DATOS INICIALES DE DEMOSTRACIÓN (ABASTO VENEZOLANO)
         // ============================================================================
         const INITIAL_SETTINGS = {
@@ -174,6 +224,7 @@
           {
             id: 'prod-1',
             name: 'Harina de Maíz Precocida P.A.N. (1 Kg)',
+            description: 'Harina de maíz blanco precocida enriquecida, ideal para arepas, empanadas y bollos.',
             department: 'Víveres',
             emoji: '🌽',
             image: null,
@@ -183,11 +234,13 @@
             wholesaleMinQty: 5,
             stock: 85,
             isOffer: true,
+            saleMode: 'UNIT',
             unit: 'Paquete 1Kg',
           },
           {
             id: 'prod-2',
             name: 'Arroz Blanco Tipo I (1 Kg)',
+            description: 'Arroz blanco de grano entero seleccionado, rendimiento superior.',
             department: 'Víveres',
             emoji: '🍚',
             image: null,
@@ -197,11 +250,13 @@
             wholesaleMinQty: 6,
             stock: 60,
             isOffer: false,
+            saleMode: 'UNIT',
             unit: 'Paquete 1Kg',
           },
           {
             id: 'prod-3',
-            name: 'Aceite Vegetal Comestible (1 Litro)',
+            name: 'Aceite Vegetal a Granel (Por Litro)',
+            description: 'Aceite vegetal comestible puro. Pide la cantidad exacta en litros o mililitros.',
             department: 'Víveres',
             emoji: '🌻',
             image: null,
@@ -211,11 +266,13 @@
             wholesaleMinQty: 4,
             stock: 42,
             isOffer: true,
-            unit: 'Botella 1L',
+            saleMode: 'VOLUME',
+            unit: 'Litro (Lt)',
           },
           {
             id: 'prod-4',
             name: 'Queso Blanco Llanero Duro (Por Kg)',
+            description: 'Queso blanco llanero fresco y firme, perfecto para rallar o freír. Se pesa exacto en balanza.',
             department: 'Charcutería y Lácteos',
             emoji: '🧀',
             image: null,
@@ -225,11 +282,13 @@
             wholesaleMinQty: 3,
             stock: 25,
             isOffer: true,
-            unit: 'Kilogramo',
+            saleMode: 'WEIGHT',
+            unit: 'Kilogramo (Kg)',
           },
           {
             id: 'prod-5',
             name: 'Pollo Entero Beneficiado Fresco (Por Kg)',
+            description: 'Pollo fresco beneficiado del día, limpio y listo para preparar. Venta por peso exacto.',
             department: 'Carnes y Pollo',
             emoji: '🍗',
             image: null,
@@ -239,11 +298,13 @@
             wholesaleMinQty: 4,
             stock: 30,
             isOffer: false,
-            unit: 'Kilogramo',
+            saleMode: 'WEIGHT',
+            unit: 'Kilogramo (Kg)',
           },
           {
             id: 'prod-6',
             name: 'Café Molido Tradicional (500g)',
+            description: 'Café tostado y molido de aroma intenso y cuerpo equilibrado.',
             department: 'Víveres',
             emoji: '☕',
             image: null,
@@ -253,11 +314,13 @@
             wholesaleMinQty: 3,
             stock: 35,
             isOffer: false,
+            saleMode: 'UNIT',
             unit: 'Paquete 500g',
           },
           {
             id: 'prod-7',
             name: 'Azúcar Refinada Blanca (1 Kg)',
+            description: 'Azúcar blanca refinada de caña de alta pureza.',
             department: 'Víveres',
             emoji: '🍬',
             image: null,
@@ -267,11 +330,13 @@
             wholesaleMinQty: 5,
             stock: 70,
             isOffer: false,
+            saleMode: 'UNIT',
             unit: 'Paquete 1Kg',
           },
           {
             id: 'prod-8',
             name: 'Cartón de Huevos (30 Unidades)',
+            description: 'Huevos frescos seleccionados tamaño grande, bandeja de 30 unidades.',
             department: 'Charcutería y Lácteos',
             emoji: '🥚',
             image: null,
@@ -281,11 +346,13 @@
             wholesaleMinQty: 2,
             stock: 18,
             isOffer: true,
+            saleMode: 'UNIT',
             unit: 'Cartón 30u',
           },
           {
             id: 'prod-9',
             name: 'Plátano Maduro Seleccionado (Por Kg)',
+            description: 'Plátanos maduros dulces y firmes. Selecciona los gramos o kilos que necesites.',
             department: 'Frutas y Verduras',
             emoji: '🍌',
             image: null,
@@ -295,11 +362,13 @@
             wholesaleMinQty: 5,
             stock: 40,
             isOffer: false,
-            unit: 'Kilogramo',
+            saleMode: 'WEIGHT',
+            unit: 'Kilogramo (Kg)',
           },
           {
             id: 'prod-10',
             name: 'Tomate Perita Fresco (Por Kg)',
+            description: 'Tomates perita rojos y jugosos cosechados recientemente. Venta por peso.',
             department: 'Frutas y Verduras',
             emoji: '🍅',
             image: null,
@@ -309,11 +378,13 @@
             wholesaleMinQty: 4,
             stock: 22,
             isOffer: false,
-            unit: 'Kilogramo',
+            saleMode: 'WEIGHT',
+            unit: 'Kilogramo (Kg)',
           },
           {
             id: 'prod-11',
             name: 'Refresco Cola 2 Litros',
+            description: 'Bebida gaseosa sabor cola en botella familiar de 2 litros.',
             department: 'Bebidas',
             emoji: '🥤',
             image: null,
@@ -323,21 +394,24 @@
             wholesaleMinQty: 6,
             stock: 48,
             isOffer: true,
+            saleMode: 'UNIT',
             unit: 'Botella 2L',
           },
           {
             id: 'prod-12',
-            name: 'Detergente en Polvo Multiusos (1 Kg)',
+            name: 'Cloro / Desinfectante Líquido (Por Litro)',
+            description: 'Cloro concentrado multiusos a granel. Compra por litros o mililitros.',
             department: 'Limpieza',
             emoji: '🫧',
             image: null,
-            costPrice: 1.70,
-            retailPrice: 2.30,
-            wholesalePrice: 2.00,
-            wholesaleMinQty: 4,
-            stock: 8,
+            costPrice: 0.70,
+            retailPrice: 1.10,
+            wholesalePrice: 0.90,
+            wholesaleMinQty: 5,
+            stock: 50,
             isOffer: false,
-            unit: 'Bolsa 1Kg',
+            saleMode: 'VOLUME',
+            unit: 'Litro (Lt)',
           },
         ];
 
@@ -364,17 +438,18 @@
 
         const INITIAL_SALES = [
           {
-            id: 'VTA-1001',
+            id: 'ORD-1001',
             date: new Date(Date.now() - 3600000 * 3).toISOString(),
             channel: 'ONLINE',
+            status: 'COMPLETED',
             customerCi: 'V-18456789',
             customerName: 'María Rodríguez',
             customerPhone: '0414-5551234',
             customerAddress: 'Av. Bolívar, Edif. Los Pinos, Apto 3-B, Centro',
             paymentMethod: 'Pago Móvil Bs.',
             items: [
-              { productId: 'prod-1', name: 'Harina de Maíz Precocida P.A.N. (1 Kg)', qty: 5, unitPrice: 1.10, costPrice: 0.95, isWholesale: true },
-              { productId: 'prod-4', name: 'Queso Blanco Llanero Duro (Por Kg)', qty: 2, unitPrice: 4.80, costPrice: 3.60, isWholesale: false },
+              { productId: 'prod-1', name: 'Harina de Maíz Precocida P.A.N. (1 Kg)', qty: 5, saleMode: 'UNIT', unitPrice: 1.10, costPrice: 0.95, isWholesale: true },
+              { productId: 'prod-4', name: 'Queso Blanco Llanero Duro (Por Kg)', qty: 2, saleMode: 'WEIGHT', unitPrice: 4.80, costPrice: 3.60, isWholesale: false },
             ],
             subtotalUsd: 15.10,
             deliveryUsd: 0,
@@ -384,17 +459,18 @@
             totalBs: 15.10 * 46.50,
           },
           {
-            id: 'VTA-1002',
+            id: 'POS-1002',
             date: new Date(Date.now() - 86400000 * 2).toISOString(),
             channel: 'POS',
+            status: 'COMPLETED',
             customerCi: 'V-22987654',
             customerName: 'Carlos Mendoza',
             customerPhone: '0424-9876543',
             customerAddress: 'Tienda Física',
             paymentMethod: 'Punto de Venta Bs.',
             items: [
-              { productId: 'prod-5', name: 'Pollo Entero Beneficiado Fresco (Por Kg)', qty: 4, unitPrice: 2.75, costPrice: 2.30, isWholesale: true },
-              { productId: 'prod-8', name: 'Cartón de Huevos (30 Unidades)', qty: 1, unitPrice: 4.50, costPrice: 3.50, isWholesale: false },
+              { productId: 'prod-5', name: 'Pollo Entero Beneficiado Fresco (Por Kg)', qty: 4, saleMode: 'WEIGHT', unitPrice: 2.75, costPrice: 2.30, isWholesale: true },
+              { productId: 'prod-8', name: 'Cartón de Huevos (30 Unidades)', qty: 1, saleMode: 'UNIT', unitPrice: 4.50, costPrice: 3.50, isWholesale: false },
             ],
             subtotalUsd: 15.50,
             deliveryUsd: 0,
@@ -426,17 +502,7 @@
           },
         ];
 
-        // ============================================================================
-        // UTILIDADES DE FORMATO E IMAGEN
-        // ============================================================================
-        const formatUsd = (val) => `$${Number(val || 0).toFixed(2)}`;
-        const formatBs = (val) =>
-          `Bs. ${Number(val || 0).toLocaleString('es-VE', {
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2,
-          })}`;
-
-        function compressImageFile(file, maxWidth = 420, quality = 0.78) {
+        function compressImageFile(file, maxWidth = 520, quality = 0.80) {
           return new Promise((resolve, reject) => {
             const reader = new FileReader();
             reader.onerror = () => reject(new Error('No se pudo leer el archivo'));
@@ -464,6 +530,375 @@
             };
             reader.readAsDataURL(file);
           });
+        }
+
+        // ============================================================================
+        // MODAL SELECTOR DE PESO (Kg / g) O VOLUMEN (Lt / mL)
+        // ============================================================================
+        function MeasureSelectorModal({ product, currentQty = 0, exchangeRate, brandPrimary, onConfirm, onClose }) {
+          const saleMode = getProductSaleMode(product);
+          const isWeight = saleMode === 'WEIGHT';
+          const unitMajor = isWeight ? 'Kg' : 'Lt';
+          const unitMinor = isWeight ? 'g' : 'mL';
+
+          const initialMinor = currentQty > 0 ? Math.round(currentQty * 1000) : 500;
+          const [minorAmount, setMinorAmount] = useState(String(initialMinor));
+
+          const numericMinor = Math.max(0, Number(minorAmount) || 0);
+          const qtyInMajor = round3(numericMinor / 1000);
+          const isWholesale = qtyInMajor >= product.wholesaleMinQty;
+          const appliedPrice = isWholesale ? product.wholesalePrice : product.retailPrice;
+          const totalUsd = round3(qtyInMajor * appliedPrice);
+          const totalBs = totalUsd * exchangeRate;
+          const exceedsStock = qtyInMajor > product.stock;
+
+          const presets = [
+            { label: `250 ${unitMinor}`, minor: 250 },
+            { label: `500 ${unitMinor}`, minor: 500 },
+            { label: `750 ${unitMinor}`, minor: 750 },
+            { label: `1 ${unitMajor}`, minor: 1000 },
+            { label: `1.5 ${unitMajor}`, minor: 1500 },
+            { label: `2 ${unitMajor}`, minor: 2000 },
+          ];
+
+          const handleApply = (e) => {
+            e.preventDefault();
+            if (qtyInMajor <= 0 || exceedsStock) return;
+            onConfirm(qtyInMajor);
+          };
+
+          return (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/65 backdrop-blur-xs p-4">
+              <div className="bg-white rounded-3xl max-w-md w-full shadow-2xl overflow-hidden animate-fadeIn">
+                <div
+                  style={{ backgroundColor: brandPrimary }}
+                  className="px-5 py-4 text-white flex items-center justify-between"
+                >
+                  <div className="flex items-center gap-2.5">
+                    {isWeight ? <Scale className="w-6 h-6" /> : <Droplets className="w-6 h-6" />}
+                    <div>
+                      <h3 className="font-extrabold text-base leading-tight">
+                        {isWeight ? 'Seleccionar Peso (Kg / g)' : 'Seleccionar Volumen (Lt / mL)'}
+                      </h3>
+                      <p className="text-[11px] text-white/85 truncate max-w-[260px]">
+                        {product.name}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={onClose}
+                    className="p-1.5 rounded-xl bg-black/20 hover:bg-black/30 text-white cursor-pointer"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+
+                <form onSubmit={handleApply} className="p-5 space-y-4">
+                  <div className="flex items-center justify-between bg-slate-50 p-3 rounded-2xl border border-slate-200 text-xs">
+                    <div>
+                      <span className="text-slate-500 block">Precio por 1 {unitMajor}:</span>
+                      <strong className="text-base font-extrabold text-slate-900">
+                        {formatUsd(product.retailPrice)}
+                      </strong>
+                      <span className="text-slate-500 ml-1.5">
+                        ({formatBs(product.retailPrice * exchangeRate)})
+                      </span>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-slate-500 block">Disponible:</span>
+                      <strong className="text-sm font-extrabold text-emerald-700">
+                        {round3(product.stock)} {unitMajor}
+                      </strong>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-2">
+                      Selección Rápida:
+                    </label>
+                    <div className="grid grid-cols-3 gap-2">
+                      {presets.map((p) => {
+                        const active = Number(minorAmount) === p.minor;
+                        return (
+                          <button
+                            key={p.minor}
+                            type="button"
+                            onClick={() => setMinorAmount(String(p.minor))}
+                            style={active ? { backgroundColor: brandPrimary, borderColor: brandPrimary, color: '#fff' } : undefined}
+                            className={`py-2 px-2 rounded-xl border text-xs font-extrabold transition cursor-pointer ${
+                              active
+                                ? 'shadow-sm'
+                                : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+                            }`}
+                          >
+                            {p.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                      O escribe la cantidad exacta en {isWeight ? 'Gramos (g)' : 'Mililitros (mL)'}:
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="number"
+                        min="1"
+                        step="1"
+                        required
+                        value={minorAmount}
+                        onChange={(e) => setMinorAmount(e.target.value)}
+                        className="w-full pl-4 pr-24 py-3 border-2 border-slate-300 rounded-xl text-lg font-black text-slate-900 focus:outline-none focus:border-emerald-500"
+                        placeholder="Ej: 500"
+                      />
+                      <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-extrabold text-slate-500 bg-slate-100 px-2.5 py-1 rounded-lg">
+                        {unitMinor} ({qtyInMajor.toFixed(3)} {unitMajor})
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-slate-400 mt-1">
+                      Nota: 1000 {unitMinor} = 1 {unitMajor}. (Ej: 350 {unitMinor} = 0.350 {unitMajor})
+                    </p>
+                  </div>
+
+                  {exceedsStock && (
+                    <div className="p-2.5 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs font-bold flex items-center gap-2">
+                      <AlertTriangle className="w-4 h-4 shrink-0" />
+                      <span>La cantidad supera el stock disponible ({round3(product.stock)} {unitMajor}).</span>
+                    </div>
+                  )}
+
+                  <div className="p-3.5 rounded-2xl bg-slate-900 text-white flex items-center justify-between">
+                    <div>
+                      <span className="text-[11px] text-slate-400 block">
+                        Subtotal ({formatMeasureQty(qtyInMajor, saleMode)})
+                        {isWholesale && (
+                          <span className="ml-1.5 bg-amber-400 text-slate-950 px-1.5 py-0.5 rounded font-black text-[9px]">
+                            ¡MAYOR!
+                          </span>
+                        )}
+                      </span>
+                      <span className="text-2xl font-black text-emerald-400">
+                        {formatUsd(totalUsd)}
+                      </span>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-[11px] text-slate-400 block">En Bolívares</span>
+                      <span className="text-base font-extrabold text-amber-300">
+                        {formatBs(totalBs)}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-2 pt-1">
+                    <button
+                      type="button"
+                      onClick={onClose}
+                      className="flex-1 py-3 rounded-xl border border-slate-200 text-slate-600 font-bold text-xs hover:bg-slate-50 cursor-pointer"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={qtyInMajor <= 0 || exceedsStock}
+                      style={{ backgroundColor: brandPrimary }}
+                      className="flex-2 py-3 px-5 rounded-xl text-white font-extrabold text-xs shadow-md hover:opacity-95 disabled:opacity-40 cursor-pointer"
+                    >
+                      Confirmar {formatMeasureQty(qtyInMajor, saleMode)}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          );
+        }
+
+        // ============================================================================
+        // MODAL DETALLE DEL PRODUCTO / LIGHTBOX DE IMAGEN Y DESCRIPCIÓN
+        // ============================================================================
+        function ProductDetailModal({
+          product,
+          qtyInCart,
+          exchangeRate,
+          brandPrimary,
+          brandAccent,
+          onAddUnit,
+          onOpenMeasureModal,
+          onClose,
+        }) {
+          if (!product) return null;
+          const saleMode = getProductSaleMode(product);
+          const isMeasured = saleMode === 'WEIGHT' || saleMode === 'VOLUME';
+          const outOfStock = product.stock <= 0;
+          const isWholesaleActive = qtyInCart >= product.wholesaleMinQty;
+
+          return (
+            <div
+              onClick={onClose}
+              className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/75 backdrop-blur-xs p-4 overflow-y-auto"
+            >
+              <div
+                onClick={(e) => e.stopPropagation()}
+                className="bg-white rounded-3xl max-w-lg w-full shadow-2xl overflow-hidden my-8"
+              >
+                <div className="relative bg-slate-100 flex items-center justify-center min-h-[260px] max-h-[380px] overflow-hidden">
+                  {product.image ? (
+                    <img
+                      src={product.image}
+                      alt={product.name}
+                      className="w-full h-full max-h-[380px] object-contain bg-slate-950"
+                    />
+                  ) : (
+                    <div className="py-16 text-8xl select-none">{product.emoji || '📦'}</div>
+                  )}
+
+                  <button
+                    onClick={onClose}
+                    className="absolute top-3 right-3 w-9 h-9 rounded-full bg-black/60 hover:bg-black/80 text-white flex items-center justify-center shadow-lg cursor-pointer"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+
+                  <div className="absolute top-3 left-3 flex flex-wrap gap-1.5">
+                    {product.isOffer && (
+                      <span
+                        style={{ backgroundColor: brandAccent }}
+                        className="text-slate-950 text-xs font-extrabold px-2.5 py-1 rounded-full shadow"
+                      >
+                        🔥 OFERTA
+                      </span>
+                    )}
+                    {saleMode === 'WEIGHT' && (
+                      <span className="bg-amber-900/90 text-amber-100 text-xs font-extrabold px-2.5 py-1 rounded-full shadow flex items-center gap-1">
+                        <Scale className="w-3.5 h-3.5" /> Venta por Peso (Kg / g)
+                      </span>
+                    )}
+                    {saleMode === 'VOLUME' && (
+                      <span className="bg-sky-900/90 text-sky-100 text-xs font-extrabold px-2.5 py-1 rounded-full shadow flex items-center gap-1">
+                        <Droplets className="w-3.5 h-3.5" /> Venta por Litro (Lt / mL)
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                <div className="p-6 space-y-4">
+                  <div>
+                    <div className="flex items-center justify-between gap-2">
+                      <span
+                        style={{ color: brandPrimary }}
+                        className="text-xs font-extrabold uppercase tracking-wider"
+                      >
+                        {product.department}
+                      </span>
+                      <span className="text-xs font-bold text-slate-500">
+                        {outOfStock
+                          ? 'Sin stock'
+                          : `Disponible: ${formatMeasureQty(product.stock, saleMode)}`}
+                      </span>
+                    </div>
+                    <h3 className="text-xl font-extrabold text-slate-900 mt-1">{product.name}</h3>
+                    <p className="text-xs text-slate-400 mt-0.5">Presentación: {product.unit}</p>
+                  </div>
+
+                  {product.description ? (
+                    <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 text-xs text-slate-700 leading-relaxed">
+                      <span className="font-extrabold text-slate-900 block mb-1">
+                        Descripción del Producto:
+                      </span>
+                      {product.description}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-slate-400 italic">
+                      Producto fresco y garantizado disponible en {product.department}.
+                    </p>
+                  )}
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200">
+                      <span className="text-[11px] font-bold text-slate-500 block">
+                        Precio Detal ({formatBasePriceLabel(saleMode)}):
+                      </span>
+                      <span className="text-xl font-black text-slate-900">
+                        {formatUsd(product.retailPrice)}
+                      </span>
+                      <span className="block text-xs font-semibold text-slate-500">
+                        {formatBs(product.retailPrice * exchangeRate)}
+                      </span>
+                    </div>
+
+                    <div
+                      style={{
+                        backgroundColor: `${brandPrimary}10`,
+                        borderColor: `${brandPrimary}40`,
+                      }}
+                      className="p-3 rounded-2xl border"
+                    >
+                      <span
+                        style={{ color: brandPrimary }}
+                        className="text-[11px] font-extrabold block"
+                      >
+                        Mayor ({formatMeasureQty(product.wholesaleMinQty, saleMode)}+):
+                      </span>
+                      <span
+                        style={{ color: brandPrimary }}
+                        className="text-xl font-black"
+                      >
+                        {formatUsd(product.wholesalePrice)}
+                      </span>
+                      <span
+                        style={{ color: brandPrimary }}
+                        className="block text-xs font-semibold opacity-85"
+                      >
+                        {formatBs(product.wholesalePrice * exchangeRate)}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="pt-1">
+                    {outOfStock ? (
+                      <button
+                        disabled
+                        className="w-full py-3.5 rounded-2xl bg-slate-100 text-slate-400 font-bold text-sm cursor-not-allowed"
+                      >
+                        Producto Agotado
+                      </button>
+                    ) : isMeasured ? (
+                      <button
+                        onClick={() => {
+                          onClose();
+                          onOpenMeasureModal(product);
+                        }}
+                        style={{ backgroundColor: brandPrimary }}
+                        className="w-full py-3.5 rounded-2xl text-white font-extrabold text-sm shadow-lg hover:opacity-95 flex items-center justify-center gap-2 cursor-pointer"
+                      >
+                        {saleMode === 'WEIGHT' ? <Scale className="w-5 h-5" /> : <Droplets className="w-5 h-5" />}
+                        {qtyInCart > 0
+                          ? `Modificar Cantidad (${formatMeasureQty(qtyInCart, saleMode)} en carrito)`
+                          : saleMode === 'WEIGHT'
+                          ? 'Elegir Gramos / Kilos y Agregar'
+                          : 'Elegir Mililitros / Litros y Agregar'}
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => {
+                          onAddUnit(product.id, 1);
+                          onClose();
+                        }}
+                        style={{ backgroundColor: brandPrimary }}
+                        className="w-full py-3.5 rounded-2xl text-white font-extrabold text-sm shadow-lg hover:opacity-95 flex items-center justify-center gap-2 cursor-pointer"
+                      >
+                        <ShoppingCart className="w-5 h-5" />
+                        {qtyInCart > 0
+                          ? `Agregar +1 al Carrito (Tienes ${qtyInCart})`
+                          : 'Agregar al Carrito'}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
         }
 
         // ============================================================================
@@ -513,7 +948,6 @@
             updateCloud({ cashMovements: val });
           };
 
-          // Inicializar la sesión del cliente desde LocalStorage / Cookie permanentemente
           const [currentUserCi, setCurrentUserCiState] = useState(() => obtenerSesionClienteGuardada());
 
           const setCurrentUserCi = (ci) => {
@@ -544,6 +978,10 @@
           const [checkoutAfterAuth, setCheckoutAfterAuth] = useState(false);
           const [whatsappConfirmModal, setWhatsappConfirmModal] = useState(null);
           const [copiedMsg, setCopiedMsg] = useState(false);
+
+          // Nuevos estados para Lightbox de Producto y Selector de Peso/Volumen
+          const [detailProduct, setDetailProduct] = useState(null);
+          const [measureModalProduct, setMeasureModalProduct] = useState(null);
 
           const brandPrimary = settings.primaryColor || '#059669';
           const brandAccent = settings.accentColor || '#f59e0b';
@@ -589,7 +1027,6 @@
             return () => unsubscribe();
           }, []);
 
-          // Verificar si existe una sesión guardada en el navegador y restaurar también desde colección individual de respaldo si hace falta
           useEffect(() => {
             if (!isCloudLoaded || !currentUserCi) return;
             const existsInMain = customers.some((c) => c.ci === currentUserCi);
@@ -631,15 +1068,12 @@
               ? customers.map((c) => (c.ci === ciNorm ? recordNorm : c))
               : [recordNorm, ...customers];
 
-            // 1. Guarda en el documento principal de la tienda
             updateCloud({ customers: updatedCustomers });
 
-            // 2. Guarda también en colección dedicada 'clientes/{ci}' para máxima seguridad y persistencia
             setDoc(doc(db, 'clientes', ciNorm), recordNorm, { merge: true }).catch((err) =>
               console.error('Error guardando respaldo individual del cliente:', err)
             );
 
-            // 3. Guarda sesión permanente en el dispositivo del cliente
             setCurrentUserCi(ciNorm);
           };
 
@@ -653,6 +1087,7 @@
               .map((item) => {
                 const product = products.find((p) => p.id === item.productId);
                 if (!product) return null;
+                const saleMode = getProductSaleMode(product);
                 const isWholesale = item.qty >= product.wholesaleMinQty;
                 const appliedPriceUsd = isWholesale ? product.wholesalePrice : product.retailPrice;
                 const regularTotalUsd = product.retailPrice * item.qty;
@@ -661,11 +1096,12 @@
                 return {
                   ...item,
                   product,
+                  saleMode,
                   isWholesale,
                   appliedPriceUsd,
                   lineTotalUsd,
                   savingsUsd,
-                  missingForWholesale: isWholesale ? 0 : product.wholesaleMinQty - item.qty,
+                  missingForWholesale: isWholesale ? 0 : round3(product.wholesaleMinQty - item.qty),
                 };
               })
               .filter(Boolean);
@@ -674,7 +1110,11 @@
           const cartSummary = useMemo(() => {
             const subtotalUsd = enrichedCart.reduce((acc, item) => acc + item.lineTotalUsd, 0);
             const totalSavingsUsd = enrichedCart.reduce((acc, item) => acc + item.savingsUsd, 0);
-            const totalItemsCount = enrichedCart.reduce((acc, item) => acc + item.qty, 0);
+            // Cada línea en carrito cuenta como 1 línea de producto si es pesada, o sus unidades si es unitario
+            const totalItemsCount = enrichedCart.reduce(
+              (acc, item) => acc + (item.saleMode === 'UNIT' ? item.qty : 1),
+              0
+            );
             const qualifiesFreeDelivery = subtotalUsd >= settings.freeDeliveryThreshold;
             const deliveryUsd =
               subtotalUsd === 0 ? 0 : qualifiesFreeDelivery ? 0 : Number(settings.deliveryFee);
@@ -701,13 +1141,13 @@
             setCart((prev) => {
               const existing = prev.find((i) => i.productId === productId);
               const currentQty = existing ? existing.qty : 0;
-              const newQty = currentQty + delta;
+              const newQty = round3(currentQty + delta);
 
               if (newQty <= 0) {
                 return prev.filter((i) => i.productId !== productId);
               }
               if (newQty > product.stock) {
-                showToast(`Solo hay ${product.stock} unidades disponibles de ${product.name}`, 'warning');
+                showToast(`Stock máximo disponible: ${product.stock}`, 'warning');
                 return prev;
               }
 
@@ -722,11 +1162,12 @@
           const setCartQtyDirect = (productId, qty) => {
             const product = products.find((p) => p.id === productId);
             if (!product) return;
-            if (qty <= 0) {
+            const cleanQty = round3(qty);
+            if (cleanQty <= 0) {
               setCart((prev) => prev.filter((i) => i.productId !== productId));
               return;
             }
-            const clampedQty = Math.min(qty, product.stock);
+            const clampedQty = Math.min(cleanQty, product.stock);
             setCart((prev) => {
               const existing = prev.find((i) => i.productId === productId);
               if (existing) {
@@ -761,15 +1202,22 @@
               0
             );
 
+            const hasMeasuredItems = enrichedCart.some(
+              (i) => i.saleMode === 'WEIGHT' || i.saleMode === 'VOLUME'
+            );
+
             const isCashPayment = onlinePaymentMethod.toLowerCase().includes('efectivo');
-            const dispatchRuleText = isCashPayment
+            const dispatchRuleText = hasMeasuredItems
+              ? 'Pedido incluye productos por Peso/Medida: sujeto a confirmación exacta en balanza antes del pago final.'
+              : isCashPayment
               ? 'Pago en Efectivo: Despacho sujeto a modalidad contra-entrega / verificación en efectivo.'
               : 'Pago Digital: El delivery sale inmediatamente tras confirmar el pago.';
 
             const newSale = {
-              id: `VTA-${Math.floor(1000 + Math.random() * 9000)}`,
+              id: `ORD-${Math.floor(1000 + Math.random() * 9000)}`,
               date: new Date().toISOString(),
               channel: 'ONLINE',
+              status: 'PENDING', // Pendiente por pesar / verificar pago en panel Admin
               customerCi: customer.ci,
               customerName: `${customer.firstName} ${customer.lastName}`,
               customerPhone: customer.phone,
@@ -779,6 +1227,7 @@
                 productId: i.product.id,
                 name: i.product.name,
                 qty: i.qty,
+                saleMode: i.saleMode,
                 unitPrice: i.appliedPriceUsd,
                 costPrice: i.product.costPrice,
                 isWholesale: i.isWholesale,
@@ -791,60 +1240,48 @@
               totalBs: cartSummary.totalBs,
             };
 
+            // Apartamos / descontamos preventivamente del stock (si se anula o edita peso en Admin, se reajusta solo)
             const updatedProducts = products.map((p) => {
               const bought = enrichedCart.find((i) => i.productId === p.id);
               if (!bought) return p;
-              return { ...p, stock: Math.max(0, p.stock - bought.qty) };
+              return { ...p, stock: Math.max(0, round3(p.stock - bought.qty)) };
             });
 
             const updatedSales = [newSale, ...sales];
-            const updatedMovements = [
-              {
-                id: `MOV-${Date.now()}`,
-                date: new Date().toISOString(),
-                type: 'IN',
-                category: `Venta Online (${onlinePaymentMethod})`,
-                description: `Pedido ${newSale.id} - ${newSale.customerName} (${newSale.customerCi})`,
-                amountUsd: newSale.totalUsd,
-                currencyUsed: onlinePaymentMethod.includes('Bs') ? 'BS' : 'USD',
-              },
-              ...cashMovements,
-            ];
 
             updateCloud({
               products: updatedProducts,
               sales: updatedSales,
-              cashMovements: updatedMovements,
             });
 
             const itemsText = enrichedCart
               .map(
                 (i) =>
-                  `• ${i.qty}x ${i.product.name} (${i.isWholesale ? 'Mayor' : 'Detal'}) = ${formatUsd(
-                    i.lineTotalUsd
-                  )}`
+                  `• ${formatMeasureQty(i.qty, i.saleMode)} de ${i.product.name} (${
+                    i.isWholesale ? 'Mayor' : 'Detal'
+                  }) = ${formatUsd(i.lineTotalUsd)}`
               )
               .join('\n');
 
             const waMessage =
-              `🛒 *NUEVO PEDIDO - ${settings.storeName.toUpperCase()}*\n` +
-              `📋 *Pedido N°:* ${newSale.id}\n\n` +
+              `🛒 *NUEVA ORDEN DIGITAL - ${settings.storeName.toUpperCase()}*\n` +
+              `📋 *Orden N°:* ${newSale.id}\n\n` +
               `👤 *DATOS DEL CLIENTE:*\n` +
               `• *Nombre:* ${customer.firstName} ${customer.lastName}\n` +
               `• *Cédula (CI):* ${customer.ci}\n` +
               `• *Teléfono:* ${customer.phone}\n` +
               `• *Ubicación:* ${customer.address}\n\n` +
-              `🛍️ *DETALLE DE LA COMPRA:*\n${itemsText}\n\n` +
+              `🛍️ *DETALLE SOLICITADO:*\n${itemsText}\n\n` +
               `💳 *Método de Pago:* ${onlinePaymentMethod}\n` +
               `🚚 *Delivery:* ${
                 cartSummary.deliveryUsd === 0 ? 'GRATIS 🎉' : formatUsd(cartSummary.deliveryUsd)
               }\n` +
-              `📦 *Condición de Despacho:* ${dispatchRuleText}\n\n` +
-              `💵 *TOTAL EN DÓLARES:* ${formatUsd(cartSummary.totalUsd)}\n` +
-              `🇻🇪 *TOTAL EN BOLÍVARES:* ${formatBs(cartSummary.totalBs)} _(Tasa: Bs. ${Number(
+              `📦 *Nota:* ${dispatchRuleText}\n\n` +
+              `💵 *TOTAL ESTIMADO USD:* ${formatUsd(cartSummary.totalUsd)}\n` +
+              `🇻🇪 *TOTAL ESTIMADO BS:* ${formatBs(cartSummary.totalBs)} _(Tasa: Bs. ${Number(
                 settings.exchangeRate
               ).toFixed(2)})_\n\n` +
-              `¡Hola! Envío mi pedido para coordinar el pago y la entrega.`;
+              `¡Hola! Envío mi orden para verificar disponibilidad/peso y coordinar el pago.`;
 
             const cleanPhone = settings.whatsappNumber.replace(/\D/g, '');
             const waUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(waMessage)}`;
@@ -852,7 +1289,7 @@
             setCart([]);
             setIsCartOpen(false);
             setWhatsappConfirmModal({ sale: newSale, message: waMessage, url: waUrl });
-            showToast('¡Pedido registrado y sincronizado en la nube!');
+            showToast(`¡Orden ${newSale.id} registrada! Puedes gestionarla en el Panel Admin.`);
           };
 
           const handleAdminButtonClick = () => {
@@ -894,7 +1331,8 @@
             return products.filter((p) => {
               const matchesSearch =
                 p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                p.department.toLowerCase().includes(searchQuery.toLowerCase());
+                p.department.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                (p.description || '').toLowerCase().includes(searchQuery.toLowerCase());
 
               if (!matchesSearch) return false;
 
@@ -903,6 +1341,11 @@
               return p.department === selectedDepartment;
             });
           }, [products, searchQuery, selectedDepartment]);
+
+          const pendingOrdersCount = useMemo(
+            () => sales.filter((s) => s.status === 'PENDING').length,
+            [sales]
+          );
 
           const lowStockCount = useMemo(
             () => products.filter((p) => p.stock <= 10).length,
@@ -945,7 +1388,6 @@
                 </div>
               )}
 
-              {/* Cintillo Promocional Superior Editable */}
               {settings.topBannerActive && settings.topBannerText && (
                 <div
                   style={{ backgroundColor: brandAccent }}
@@ -1008,9 +1450,9 @@
                           <>
                             <Lock className="w-3.5 h-3.5" />
                             Panel Admin / POS
-                            {lowStockCount > 0 && (
-                              <span className="ml-1 bg-red-500 text-white text-[10px] px-1.5 rounded-full">
-                                {lowStockCount}
+                            {(pendingOrdersCount > 0 || lowStockCount > 0) && (
+                              <span className="ml-1 bg-amber-400 text-slate-950 font-black text-[10px] px-1.5 rounded-full">
+                                {pendingOrdersCount > 0 ? `${pendingOrdersCount} ped` : lowStockCount}
                               </span>
                             )}
                           </>
@@ -1048,7 +1490,7 @@
                         className="text-[11px] font-semibold mt-0.5"
                       >
                         {appMode === 'ADMIN'
-                          ? 'SISTEMA POS & ADMINISTRACIÓN'
+                          ? 'SISTEMA POS, BALANZA Y FACTURACIÓN'
                           : settings.storeSlogan || 'Tu mercado rápido y fresco'}
                       </p>
                     </div>
@@ -1062,7 +1504,7 @@
                           type="text"
                           value={searchQuery}
                           onChange={(e) => setSearchQuery(e.target.value)}
-                          placeholder="Buscar productos o departamentos..."
+                          placeholder="Buscar productos, carnes, quesos, líquidos..."
                           className="w-full pl-10 pr-4 py-2.5 bg-slate-100 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:bg-white transition"
                           style={{ '--tw-ring-color': brandPrimary }}
                         />
@@ -1153,7 +1595,6 @@
 
               {appMode === 'STORE' ? (
                 <main className="flex-1 max-w-7xl w-full mx-auto px-4 py-6 space-y-6">
-                  {/* Banner Principal Personalizable */}
                   <div
                     style={{
                       background: `linear-gradient(120deg, ${brandHeader} 0%, ${brandPrimary} 100%)`,
@@ -1263,6 +1704,8 @@
                       {filteredProducts.map((product) => {
                         const cartItem = cart.find((i) => i.productId === product.id);
                         const qtyInCart = cartItem ? cartItem.qty : 0;
+                        const saleMode = getProductSaleMode(product);
+                        const isMeasured = saleMode === 'WEIGHT' || saleMode === 'VOLUME';
                         const isWholesaleActive = qtyInCart >= product.wholesaleMinQty;
                         const outOfStock = product.stock <= 0;
 
@@ -1275,18 +1718,28 @@
                             }`}
                           >
                             <div>
-                              <div className="relative h-36 sm:h-44 bg-gradient-to-b from-slate-50 to-slate-100/70 flex items-center justify-center border-b border-slate-100 overflow-hidden">
+                              {/* Imagen clicable para abrir vista ampliada y descripción */}
+                              <div
+                                onClick={() => setDetailProduct(product)}
+                                title="Toca para ver foto ampliada y descripción"
+                                className="group relative h-36 sm:h-44 bg-gradient-to-b from-slate-50 to-slate-100/70 flex items-center justify-center border-b border-slate-100 overflow-hidden cursor-pointer"
+                              >
                                 {product.image ? (
                                   <img
                                     src={product.image}
                                     alt={product.name}
-                                    className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
+                                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                                   />
                                 ) : (
-                                  <span className="text-5xl sm:text-6xl select-none transform hover:scale-110 transition-transform">
+                                  <span className="text-5xl sm:text-6xl select-none transform group-hover:scale-110 transition-transform">
                                     {product.emoji || '📦'}
                                   </span>
                                 )}
+
+                                <div className="absolute bottom-2 right-2 bg-black/55 text-white text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 opacity-90 group-hover:opacity-100">
+                                  <ZoomIn className="w-3 h-3" />
+                                  <span>Ver detalle</span>
+                                </div>
 
                                 <div className="absolute top-2.5 left-2.5 flex flex-col gap-1">
                                   {product.isOffer && (
@@ -1295,6 +1748,16 @@
                                       className="text-slate-950 text-[10px] font-extrabold px-2 py-0.5 rounded-full shadow-sm flex items-center gap-1"
                                     >
                                       <Tag className="w-3 h-3" /> OFERTA
+                                    </span>
+                                  )}
+                                  {saleMode === 'WEIGHT' && (
+                                    <span className="bg-amber-900/90 text-amber-100 text-[10px] font-extrabold px-2 py-0.5 rounded-full shadow-sm flex items-center gap-1">
+                                      <Scale className="w-3 h-3" /> POR PESO (Kg/g)
+                                    </span>
+                                  )}
+                                  {saleMode === 'VOLUME' && (
+                                    <span className="bg-sky-900/90 text-sky-100 text-[10px] font-extrabold px-2 py-0.5 rounded-full shadow-sm flex items-center gap-1">
+                                      <Droplets className="w-3 h-3" /> POR LITRO (Lt/mL)
                                     </span>
                                   )}
                                   {isWholesaleActive && (
@@ -1316,7 +1779,7 @@
                                       : 'bg-white/95 text-slate-700 border border-slate-200'
                                   }`}
                                 >
-                                  {outOfStock ? 'Agotado' : `Disp: ${product.stock}`}
+                                  {outOfStock ? 'Agotado' : `Disp: ${formatMeasureQty(product.stock, saleMode)}`}
                                 </span>
                               </div>
 
@@ -1328,10 +1791,19 @@
                                   >
                                     {product.department}
                                   </span>
-                                  <h4 className="font-bold text-slate-900 text-xs sm:text-base leading-snug mt-0.5 line-clamp-2">
+                                  <h4
+                                    onClick={() => setDetailProduct(product)}
+                                    className="font-bold text-slate-900 text-xs sm:text-base leading-snug mt-0.5 line-clamp-2 cursor-pointer hover:underline"
+                                  >
                                     {product.name}
                                   </h4>
-                                  <p className="text-[11px] text-slate-400 mt-0.5">{product.unit}</p>
+                                  {product.description ? (
+                                    <p className="text-[11px] text-slate-500 mt-0.5 line-clamp-2">
+                                      {product.description}
+                                    </p>
+                                  ) : (
+                                    <p className="text-[11px] text-slate-400 mt-0.5">{product.unit}</p>
+                                  )}
                                 </div>
 
                                 <div className="space-y-1.5 pt-0.5">
@@ -1343,7 +1815,9 @@
                                     }`}
                                   >
                                     <div className="flex items-baseline justify-between gap-1">
-                                      <span className="text-[11px] font-medium text-slate-500">Detal:</span>
+                                      <span className="text-[11px] font-medium text-slate-500">
+                                        Detal ({formatBasePriceLabel(saleMode)}):
+                                      </span>
                                       <div className="text-right">
                                         <span className="text-sm sm:text-lg font-extrabold text-slate-900">
                                           {formatUsd(product.retailPrice)}
@@ -1373,7 +1847,7 @@
                                         style={{ color: brandPrimary }}
                                         className="text-[10px] sm:text-xs font-bold"
                                       >
-                                        Mayor ({product.wholesaleMinQty}+):
+                                        Mayor ({formatMeasureQty(product.wholesaleMinQty, saleMode)}+):
                                       </span>
                                       <div className="text-right">
                                         <span
@@ -1403,6 +1877,43 @@
                                 >
                                   Agotado
                                 </button>
+                              ) : isMeasured ? (
+                                qtyInCart === 0 ? (
+                                  <button
+                                    onClick={() => setMeasureModalProduct(product)}
+                                    style={{ backgroundColor: brandPrimary }}
+                                    className="w-full py-2 sm:py-2.5 px-3 rounded-xl hover:opacity-95 active:scale-[0.99] text-white font-bold text-xs sm:text-sm shadow-sm transition flex items-center justify-center gap-1.5 cursor-pointer"
+                                  >
+                                    {saleMode === 'WEIGHT' ? (
+                                      <Scale className="w-4 h-4 shrink-0" />
+                                    ) : (
+                                      <Droplets className="w-4 h-4 shrink-0" />
+                                    )}
+                                    <span>{saleMode === 'WEIGHT' ? 'Elegir Peso' : 'Elegir Litros'}</span>
+                                  </button>
+                                ) : (
+                                  <div className="flex items-center gap-1.5">
+                                    <button
+                                      onClick={() => setMeasureModalProduct(product)}
+                                      style={{
+                                        backgroundColor: `${brandPrimary}15`,
+                                        borderColor: brandPrimary,
+                                        color: brandPrimary,
+                                      }}
+                                      className="flex-1 py-2 px-2.5 rounded-xl border font-extrabold text-xs flex items-center justify-center gap-1 cursor-pointer"
+                                    >
+                                      <Edit3 className="w-3.5 h-3.5" />
+                                      <span>{formatMeasureQty(qtyInCart, saleMode)}</span>
+                                    </button>
+                                    <button
+                                      onClick={() => setCartQtyDirect(product.id, 0)}
+                                      className="p-2 rounded-xl bg-red-50 text-red-600 hover:bg-red-100 cursor-pointer"
+                                      title="Quitar del carrito"
+                                    >
+                                      <Trash2 className="w-4 h-4" />
+                                    </button>
+                                  </div>
+                                )
                               ) : qtyInCart === 0 ? (
                                 <button
                                   onClick={() => addToCart(product.id, 1)}
@@ -1490,6 +2001,42 @@
                 />
               )}
 
+              {/* Modal Vista Ampliada (Lightbox) y Descripción de Producto */}
+              {detailProduct && (
+                <ProductDetailModal
+                  product={detailProduct}
+                  qtyInCart={cart.find((i) => i.productId === detailProduct.id)?.qty || 0}
+                  exchangeRate={settings.exchangeRate}
+                  brandPrimary={brandPrimary}
+                  brandAccent={brandAccent}
+                  onAddUnit={addToCart}
+                  onOpenMeasureModal={(prod) => setMeasureModalProduct(prod)}
+                  onClose={() => setDetailProduct(null)}
+                />
+              )}
+
+              {/* Modal Selector de Peso (Kg/g) o Volumen (Lt/mL) */}
+              {measureModalProduct && (
+                <MeasureSelectorModal
+                  product={measureModalProduct}
+                  currentQty={cart.find((i) => i.productId === measureModalProduct.id)?.qty || 0}
+                  exchangeRate={settings.exchangeRate}
+                  brandPrimary={brandPrimary}
+                  onConfirm={(qtyMajor) => {
+                    setCartQtyDirect(measureModalProduct.id, qtyMajor);
+                    showToast(
+                      `${measureModalProduct.name} (${formatMeasureQty(
+                        qtyMajor,
+                        getProductSaleMode(measureModalProduct)
+                      )}) actualizado en el carrito`
+                    );
+                    setMeasureModalProduct(null);
+                  }}
+                  onClose={() => setMeasureModalProduct(null)}
+                />
+              )}
+
+              {/* Carrito Lateral */}
               {isCartOpen && (
                 <div className="fixed inset-0 z-50 flex justify-end bg-slate-900/50 backdrop-blur-xs">
                   <div className="w-full max-w-md bg-white h-full shadow-2xl flex flex-col justify-between">
@@ -1504,7 +2051,7 @@
                         <div>
                           <h3 className="font-extrabold text-slate-900 text-base">Tu Carrito de Compra</h3>
                           <p className="text-xs text-slate-500">
-                            {cartSummary.totalItemsCount} artículos seleccionados
+                            {enrichedCart.length} productos seleccionados
                           </p>
                         </div>
                       </div>
@@ -1570,88 +2117,101 @@
                           </div>
                           <h4 className="font-bold text-slate-800">Tu carrito está vacío</h4>
                           <p className="text-xs text-slate-500 max-w-xs">
-                            Explora nuestros departamentos y agrega productos para armar tu pedido.
+                            Explora nuestros departamentos y agrega productos por unidad, peso (Kg/g) o litro (Lt/mL).
                           </p>
                         </div>
                       ) : (
-                        enrichedCart.map((item) => (
-                          <div
-                            key={item.productId}
-                            className="p-3 rounded-2xl border border-slate-200 bg-white flex items-center gap-3 shadow-2xs"
-                          >
-                            {item.product.image ? (
-                              <img
-                                src={item.product.image}
-                                alt={item.product.name}
-                                className="w-12 h-12 rounded-xl object-cover border border-slate-200 shrink-0"
-                              />
-                            ) : (
-                              <div className="w-12 h-12 rounded-xl bg-slate-100 flex items-center justify-center text-2xl shrink-0">
-                                {item.product.emoji}
-                              </div>
-                            )}
-                            <div className="flex-1 min-w-0">
-                              <h5 className="font-bold text-slate-800 text-sm truncate">
-                                {item.product.name}
-                              </h5>
-                              <div className="flex items-center gap-2 mt-0.5">
-                                <span
-                                  style={{ color: brandPrimary }}
-                                  className="text-xs font-bold"
-                                >
-                                  {formatUsd(item.appliedPriceUsd)} c/u
-                                </span>
-                                {item.isWholesale ? (
+                        enrichedCart.map((item) => {
+                          const isMeasured = item.saleMode === 'WEIGHT' || item.saleMode === 'VOLUME';
+                          return (
+                            <div
+                              key={item.productId}
+                              className="p-3 rounded-2xl border border-slate-200 bg-white flex items-center gap-3 shadow-2xs"
+                            >
+                              {item.product.image ? (
+                                <img
+                                  src={item.product.image}
+                                  alt={item.product.name}
+                                  className="w-12 h-12 rounded-xl object-cover border border-slate-200 shrink-0"
+                                />
+                              ) : (
+                                <div className="w-12 h-12 rounded-xl bg-slate-100 flex items-center justify-center text-2xl shrink-0">
+                                  {item.product.emoji}
+                                </div>
+                              )}
+                              <div className="flex-1 min-w-0">
+                                <h5 className="font-bold text-slate-800 text-sm truncate">
+                                  {item.product.name}
+                                </h5>
+                                <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                                   <span
-                                    style={{
-                                      backgroundColor: `${brandPrimary}20`,
-                                      color: brandPrimary,
-                                    }}
-                                    className="text-[10px] font-extrabold px-1.5 py-0.5 rounded"
+                                    style={{ color: brandPrimary }}
+                                    className="text-xs font-bold"
                                   >
-                                    Mayor
+                                    {formatUsd(item.appliedPriceUsd)} {formatBasePriceLabel(item.saleMode)}
                                   </span>
+                                  {item.isWholesale && (
+                                    <span
+                                      style={{
+                                        backgroundColor: `${brandPrimary}20`,
+                                        color: brandPrimary,
+                                      }}
+                                      className="text-[10px] font-extrabold px-1.5 py-0.5 rounded"
+                                    >
+                                      Mayor
+                                    </span>
+                                  )}
+                                </div>
+                                <p className="text-xs font-extrabold text-slate-900 mt-1">
+                                  Subtotal: {formatUsd(item.lineTotalUsd)}{' '}
+                                  <span className="font-normal text-slate-500">
+                                    ({formatBs(item.lineTotalUsd * settings.exchangeRate)})
+                                  </span>
+                                </p>
+                              </div>
+
+                              <div className="flex flex-col items-end gap-1.5">
+                                <button
+                                  onClick={() => setCartQtyDirect(item.productId, 0)}
+                                  className="text-slate-400 hover:text-red-500 p-1 cursor-pointer"
+                                  title="Eliminar"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                                {isMeasured ? (
+                                  <button
+                                    onClick={() => {
+                                      setIsCartOpen(false);
+                                      setMeasureModalProduct(item.product);
+                                    }}
+                                    style={{ backgroundColor: `${brandPrimary}15`, color: brandPrimary }}
+                                    className="px-2.5 py-1.5 rounded-lg text-xs font-extrabold flex items-center gap-1 cursor-pointer"
+                                  >
+                                    <Edit3 className="w-3 h-3" />
+                                    {formatMeasureQty(item.qty, item.saleMode)}
+                                  </button>
                                 ) : (
-                                  <span className="text-[10px] text-slate-400">
-                                    (Mayor desde {item.product.wholesaleMinQty})
-                                  </span>
+                                  <div className="flex items-center gap-1.5 bg-slate-100 rounded-lg p-0.5">
+                                    <button
+                                      onClick={() => addToCart(item.productId, -1)}
+                                      className="w-7 h-7 rounded-md bg-white text-slate-700 flex items-center justify-center shadow-2xs cursor-pointer"
+                                    >
+                                      <Minus className="w-3.5 h-3.5" />
+                                    </button>
+                                    <span className="w-6 text-center font-bold text-xs">{item.qty}</span>
+                                    <button
+                                      onClick={() => addToCart(item.productId, 1)}
+                                      style={{ backgroundColor: brandPrimary }}
+                                      className="w-7 h-7 rounded-md text-white flex items-center justify-center shadow-2xs cursor-pointer"
+                                    >
+                                      <Plus className="w-3.5 h-3.5" />
+                                    </button>
+                                  </div>
                                 )}
                               </div>
-                              <p className="text-xs font-extrabold text-slate-900 mt-1">
-                                Subtotal: {formatUsd(item.lineTotalUsd)}{' '}
-                                <span className="font-normal text-slate-500">
-                                  ({formatBs(item.lineTotalUsd * settings.exchangeRate)})
-                                </span>
-                              </p>
                             </div>
-
-                            <div className="flex flex-col items-end gap-1.5">
-                              <button
-                                onClick={() => setCartQtyDirect(item.productId, 0)}
-                                className="text-slate-400 hover:text-red-500 p-1 cursor-pointer"
-                                title="Eliminar"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </button>
-                              <div className="flex items-center gap-1.5 bg-slate-100 rounded-lg p-0.5">
-                                <button
-                                  onClick={() => addToCart(item.productId, -1)}
-                                  className="w-7 h-7 rounded-md bg-white text-slate-700 flex items-center justify-center shadow-2xs cursor-pointer"
-                                >
-                                  <Minus className="w-3.5 h-3.5" />
-                                </button>
-                                <span className="w-6 text-center font-bold text-xs">{item.qty}</span>
-                                <button
-                                  onClick={() => addToCart(item.productId, 1)}
-                                  style={{ backgroundColor: brandPrimary }}
-                                  className="w-7 h-7 rounded-md text-white flex items-center justify-center shadow-2xs cursor-pointer"
-                                >
-                                  <Plus className="w-3.5 h-3.5" />
-                                </button>
-                              </div>
-                            </div>
-                          </div>
-                        ))
+                          );
+                        })
                       )}
                     </div>
 
@@ -1688,7 +2248,14 @@
                             </option>
                           </select>
 
-                          {onlinePaymentMethod.toLowerCase().includes('efectivo') ? (
+                          {enrichedCart.some((i) => i.saleMode !== 'UNIT') ? (
+                            <div className="flex items-start gap-2 text-[11px] text-amber-800 bg-amber-50 border border-amber-200 p-2 rounded-xl">
+                              <Scale className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                              <span>
+                                <strong>Productos Pesados / Medidos:</strong> Cotización aproximada según lo solicitado; confirmaremos el peso exacto de balanza antes de cerrar tu factura.
+                              </span>
+                            </div>
+                          ) : onlinePaymentMethod.toLowerCase().includes('efectivo') ? (
                             <div className="flex items-start gap-2 text-[11px] text-amber-800 bg-amber-50 border border-amber-200 p-2 rounded-xl">
                               <Info className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
                               <span>
@@ -1733,7 +2300,7 @@
                             </span>
                           </div>
                           <div className="pt-2 border-t border-slate-200 flex items-baseline justify-between">
-                            <span className="font-extrabold text-slate-900 text-base">TOTAL A PAGAR:</span>
+                            <span className="font-extrabold text-slate-900 text-base">TOTAL ESTIMADO:</span>
                             <div className="text-right">
                               <span
                                 style={{ color: brandPrimary }}
@@ -1755,8 +2322,8 @@
                         >
                           <MessageCircle className="w-5 h-5" />
                           {currentUser
-                            ? 'Finalizar Pedido por WhatsApp'
-                            : 'Registrarme y Pedir por WhatsApp'}
+                            ? 'Enviar Orden por WhatsApp'
+                            : 'Registrarme y Enviar Orden'}
                         </button>
                       </div>
                     )}
@@ -1809,12 +2376,10 @@
                       </div>
                       <div>
                         <h3 className="text-lg font-extrabold text-slate-900">
-                          ¡Pedido {whatsappConfirmModal.sale.id} Registrado!
+                          ¡Orden {whatsappConfirmModal.sale.id} Creada!
                         </h3>
                         <p className="text-xs text-slate-500">
-                          {whatsappConfirmModal.sale.paymentMethod.toLowerCase().includes('efectivo')
-                            ? 'Modalidad Efectivo: Envía el resumen por WhatsApp para coordinar la entrega.'
-                            : 'Pago Digital: Envía el resumen y tu comprobante por WhatsApp para despachar tu delivery.'}
+                          Tu orden quedó guardada en el sistema. Envía el mensaje por WhatsApp para coordinar el pesaje y pago.
                         </p>
                       </div>
                     </div>
@@ -1874,7 +2439,7 @@
                         </div>
                         <div>
                           <h3 className="font-extrabold text-slate-900">Acceso Administrativo</h3>
-                          <p className="text-xs text-slate-500">POS Caja, Inventario y Diseño</p>
+                          <p className="text-xs text-slate-500">POS Caja, Órdenes, Inventario y Diseño</p>
                         </div>
                       </div>
                       <button
@@ -1909,7 +2474,6 @@
                             {showPinText ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                           </button>
                         </div>
-
                       </div>
                       {pinError && (
                         <p className="text-xs text-red-600 font-semibold text-center">{pinError}</p>
@@ -2244,7 +2808,6 @@
 
             let found = customers.find((c) => c.ci === formatted);
 
-            // Si no está en la lista local inmediata, consultar colección 'clientes' en Firebase
             if (!found && db) {
               setIsSearchingCloud(true);
               try {
@@ -2522,11 +3085,15 @@
                       <div className="flex items-center justify-between">
                         <h4 className="font-extrabold text-slate-800 text-sm flex items-center gap-1.5">
                           <Receipt className="w-4 h-4 text-emerald-600" />
-                          Mi Historial de Compras ({userSales.length})
+                          Mi Historial de Órdenes ({userSales.length})
                         </h4>
                         <span className="text-xs font-bold text-emerald-700">
-                          Total acumulado:{' '}
-                          {formatUsd(userSales.reduce((acc, s) => acc + s.totalUsd, 0))}
+                          Completado:{' '}
+                          {formatUsd(
+                            userSales
+                              .filter((s) => (s.status || 'COMPLETED') === 'COMPLETED')
+                              .reduce((acc, s) => acc + s.totalUsd, 0)
+                          )}
                         </span>
                       </div>
 
@@ -2536,37 +3103,52 @@
                         </p>
                       ) : (
                         <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
-                          {userSales.map((sale) => (
-                            <div
-                              key={sale.id}
-                              className="p-3 rounded-xl border border-slate-200 bg-slate-50/70 flex items-center justify-between text-xs"
-                            >
-                              <div>
-                                <div className="flex items-center gap-2">
-                                  <span className="font-extrabold text-slate-800">{sale.id}</span>
-                                  <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-semibold text-[10px]">
-                                    {sale.channel === 'ONLINE' ? 'Web / WhatsApp' : 'Tienda Física'}
-                                  </span>
+                          {userSales.map((sale) => {
+                            const status = sale.status || 'COMPLETED';
+                            return (
+                              <div
+                                key={sale.id}
+                                className="p-3 rounded-xl border border-slate-200 bg-slate-50/70 flex items-center justify-between text-xs"
+                              >
+                                <div>
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <span className="font-extrabold text-slate-800">{sale.id}</span>
+                                    <span
+                                      className={`px-2 py-0.5 rounded-full font-extrabold text-[10px] ${
+                                        status === 'PENDING'
+                                          ? 'bg-amber-100 text-amber-800'
+                                          : status === 'CANCELLED'
+                                          ? 'bg-red-100 text-red-700'
+                                          : 'bg-emerald-100 text-emerald-800'
+                                      }`}
+                                    >
+                                      {status === 'PENDING'
+                                        ? '⏳ Pendiente'
+                                        : status === 'CANCELLED'
+                                        ? '✕ Anulada'
+                                        : '✓ Finalizada'}
+                                    </span>
+                                  </div>
+                                  <p className="text-slate-500 mt-0.5">
+                                    {new Date(sale.date).toLocaleDateString('es-VE', {
+                                      day: '2-digit',
+                                      month: 'short',
+                                      year: 'numeric',
+                                      hour: '2-digit',
+                                      minute: '2-digit',
+                                    })}{' '}
+                                    • {sale.items.length} prod.
+                                  </p>
                                 </div>
-                                <p className="text-slate-500 mt-0.5">
-                                  {new Date(sale.date).toLocaleDateString('es-VE', {
-                                    day: '2-digit',
-                                    month: 'short',
-                                    year: 'numeric',
-                                    hour: '2-digit',
-                                    minute: '2-digit',
-                                  })}{' '}
-                                  • {sale.items.length} prod.
-                                </p>
+                                <div className="text-right">
+                                  <span className="font-extrabold text-emerald-700 text-sm block">
+                                    {formatUsd(sale.totalUsd)}
+                                  </span>
+                                  <span className="text-slate-500">{formatBs(sale.totalBs)}</span>
+                                </div>
                               </div>
-                              <div className="text-right">
-                                <span className="font-extrabold text-emerald-700 text-sm block">
-                                  {formatUsd(sale.totalUsd)}
-                                </span>
-                                <span className="text-slate-500">{formatBs(sale.totalBs)}</span>
-                              </div>
-                            </div>
-                          ))}
+                            );
+                          })}
                         </div>
                       )}
                     </div>
@@ -2577,6 +3159,9 @@
           );
         }
 
+        // ============================================================================
+        // PANEL DE ADMINISTRACIÓN (POS, FACTURAS/ÓRDENES, INVENTARIO, CAJA, STATS)
+        // ============================================================================
         function AdminPanel({
           settings,
           setSettings,
@@ -2592,14 +3177,25 @@
           updateCloud,
           showToast,
         }) {
-          const [adminTab, setAdminTab] = useState('POS');
+          const [adminTab, setAdminTab] = useState('ORDERS');
+
+          const pendingCount = useMemo(
+            () => sales.filter((s) => s.status === 'PENDING').length,
+            [sales]
+          );
 
           return (
             <div className="flex-1 max-w-7xl w-full mx-auto px-4 py-6 space-y-6">
               <div className="bg-white p-2 rounded-2xl border border-slate-200 shadow-xs flex flex-wrap gap-2">
                 {[
+                  {
+                    id: 'ORDERS',
+                    label: 'Facturas, Pesaje y Órdenes',
+                    icon: ClipboardList,
+                    badge: pendingCount,
+                  },
                   { id: 'POS', label: 'Caja Física (POS)', icon: CreditCard },
-                  { id: 'INVENTORY', label: 'Inventario, Fotos y Rubros', icon: Package },
+                  { id: 'INVENTORY', label: 'Inventario, Pesos y Rubros', icon: Package },
                   { id: 'CASH', label: 'Control de Caja', icon: Wallet },
                   { id: 'STATS', label: 'Ventas, Ganancias y Clientes', icon: BarChart3 },
                   { id: 'SETTINGS', label: 'Diseño, Colores, Tasa y PIN', icon: Palette },
@@ -2617,11 +3213,28 @@
                       }`}
                     >
                       <Icon className="w-4 h-4" />
-                      {tab.label}
+                      <span>{tab.label}</span>
+                      {tab.badge > 0 && (
+                        <span className="bg-amber-400 text-slate-950 text-[11px] font-black px-2 py-0.5 rounded-full">
+                          {tab.badge}
+                        </span>
+                      )}
                     </button>
                   );
                 })}
               </div>
+
+              {adminTab === 'ORDERS' && (
+                <OrdersAndInvoicesTab
+                  settings={settings}
+                  products={products}
+                  customers={customers}
+                  sales={sales}
+                  cashMovements={cashMovements}
+                  updateCloud={updateCloud}
+                  showToast={showToast}
+                />
+              )}
 
               {adminTab === 'POS' && (
                 <PosCashRegisterTab
@@ -2675,6 +3288,683 @@
           );
         }
 
+        // ============================================================================
+        // MÓDULO NUEVO: GESTIÓN DE FACTURAS, BÚSQUEDA POR CÉDULA, PESAJE REAL Y ANULACIÓN
+        // ============================================================================
+        function OrdersAndInvoicesTab({
+          settings,
+          products,
+          customers,
+          sales,
+          cashMovements,
+          updateCloud,
+          showToast,
+        }) {
+          const [searchTerm, setSearchTerm] = useState('');
+          const [statusFilter, setStatusFilter] = useState('ALL');
+          const [editingOrder, setEditingOrder] = useState(null);
+
+          const filteredOrders = useMemo(() => {
+            const q = searchTerm.trim().toLowerCase();
+            return sales.filter((s) => {
+              const st = s.status || 'COMPLETED';
+              if (statusFilter !== 'ALL' && st !== statusFilter) return false;
+              if (!q) return true;
+              return (
+                (s.id || '').toLowerCase().includes(q) ||
+                (s.customerCi || '').toLowerCase().includes(q) ||
+                (s.customerName || '').toLowerCase().includes(q) ||
+                (s.customerPhone || '').toLowerCase().includes(q)
+              );
+            });
+          }, [sales, searchTerm, statusFilter]);
+
+          // Datos del cliente encontrado si el admin busca por cédula
+          const searchedCustomerProfile = useMemo(() => {
+            const q = searchTerm.trim().toUpperCase();
+            if (q.length < 4) return null;
+            return (
+              customers.find(
+                (c) =>
+                  c.ci.toUpperCase().includes(q) ||
+                  `${c.firstName} ${c.lastName}`.toUpperCase().includes(q)
+              ) || null
+            );
+          }, [customers, searchTerm]);
+
+          const openOrderEditor = (order) => {
+            setEditingOrder(JSON.parse(JSON.stringify(order)));
+          };
+
+          const handleUpdateItemQtyInOrder = (idx, rawValue, isMinorInput = false) => {
+            const val = Number(rawValue);
+            if (isNaN(val) || val < 0) return;
+
+            setEditingOrder((prev) => {
+              const updatedItems = [...prev.items];
+              const item = { ...updatedItems[idx] };
+              const prod = products.find((p) => p.id === item.productId);
+              const saleMode = item.saleMode || (prod ? getProductSaleMode(prod) : 'UNIT');
+
+              const nextQty = isMinorInput ? round3(val / 1000) : round3(val);
+              item.qty = nextQty;
+
+              // Recalcular si aplica precio mayor o detal según nueva cantidad/peso
+              if (prod) {
+                const isWholesale = nextQty >= prod.wholesaleMinQty;
+                item.isWholesale = isWholesale;
+                item.unitPrice = isWholesale ? prod.wholesalePrice : prod.retailPrice;
+                item.costPrice = prod.costPrice;
+              }
+
+              updatedItems[idx] = item;
+              return recalculateOrderTotals({ ...prev, items: updatedItems });
+            });
+          };
+
+          const handleRemoveItemFromOrder = (idx) => {
+            setEditingOrder((prev) => {
+              const updatedItems = prev.items.filter((_, i) => i !== idx);
+              return recalculateOrderTotals({ ...prev, items: updatedItems });
+            });
+          };
+
+          const recalculateOrderTotals = (orderObj) => {
+            const validItems = orderObj.items.filter((i) => i.qty > 0);
+            const subtotalUsd = round3(
+              validItems.reduce((acc, i) => acc + i.qty * i.unitPrice, 0)
+            );
+            const totalCostUsd = round3(
+              validItems.reduce((acc, i) => acc + i.qty * (i.costPrice || 0), 0)
+            );
+            const deliveryUsd =
+              orderObj.channel === 'POS' || subtotalUsd === 0
+                ? 0
+                : subtotalUsd >= settings.freeDeliveryThreshold
+                ? 0
+                : Number(settings.deliveryFee);
+
+            const totalUsd = round3(subtotalUsd + deliveryUsd);
+            const rate = orderObj.exchangeRate || settings.exchangeRate;
+            const totalBs = totalUsd * rate;
+
+            return {
+              ...orderObj,
+              items: validItems,
+              subtotalUsd,
+              deliveryUsd,
+              totalUsd,
+              totalCostUsd,
+              totalBs,
+            };
+          };
+
+          const handleSaveEditedOrder = () => {
+            if (!editingOrder) return;
+            if (editingOrder.items.length === 0) {
+              showToast('La factura quedó sin productos. Si deseas cancelarla, usa "Anular Pedido".', 'warning');
+              return;
+            }
+
+            const originalOrder = sales.find((s) => s.id === editingOrder.id);
+            if (!originalOrder) return;
+
+            // Ajustar diferencias de inventario entre lo que estaba apartado y el peso/cantidad real
+            const updatedProducts = products.map((p) => {
+              const oldItem = originalOrder.items.find((i) => i.productId === p.id);
+              const newItem = editingOrder.items.find((i) => i.productId === p.id);
+              const oldQty = oldItem ? oldItem.qty : 0;
+              const newQty = newItem ? newItem.qty : 0;
+              const delta = round3(newQty - oldQty); // positivo = se vendió más peso; negativo = se devolvió al stock
+              if (delta === 0) return p;
+              return { ...p, stock: Math.max(0, round3(p.stock - delta)) };
+            });
+
+            const updatedSales = sales.map((s) =>
+              s.id === editingOrder.id ? editingOrder : s
+            );
+
+            updateCloud({
+              products: updatedProducts,
+              sales: updatedSales,
+            });
+
+            setEditingOrder(null);
+            showToast(`✅ Factura ${editingOrder.id} actualizada y stock reajustado`);
+          };
+
+          const handleFinalizeOrder = (order) => {
+            const st = order.status || 'COMPLETED';
+            if (st === 'COMPLETED') return;
+
+            const updatedSales = sales.map((s) =>
+              s.id === order.id
+                ? { ...s, status: 'COMPLETED', finalizedAt: new Date().toISOString() }
+                : s
+            );
+
+            // Registrar ingreso formal en caja al finalizar el pago
+            const updatedMovements = [
+              {
+                id: `MOV-${Date.now()}`,
+                date: new Date().toISOString(),
+                type: 'IN',
+                category: `Cobro Orden ${order.id} (${order.paymentMethod})`,
+                description: `Cliente: ${order.customerName} (${order.customerCi})`,
+                amountUsd: order.totalUsd,
+                currencyUsed: (order.paymentMethod || '').includes('Bs') ? 'BS' : 'USD',
+              },
+              ...cashMovements,
+            ];
+
+            updateCloud({
+              sales: updatedSales,
+              cashMovements: updatedMovements,
+            });
+
+            if (editingOrder?.id === order.id) {
+              setEditingOrder(null);
+            }
+
+            showToast(`🎉 Orden ${order.id} marcada como FINALIZADA y sumada a caja`);
+          };
+
+          const handleCancelOrder = (order) => {
+            const st = order.status || 'COMPLETED';
+            if (st === 'CANCELLED') return;
+
+            // Devolver todo el stock (unidades, kilos o litros) al inventario
+            const updatedProducts = products.map((p) => {
+              const item = order.items.find((i) => i.productId === p.id);
+              if (!item) return p;
+              return { ...p, stock: round3(p.stock + item.qty) };
+            });
+
+            const updatedSales = sales.map((s) =>
+              s.id === order.id
+                ? { ...s, status: 'CANCELLED', cancelledAt: new Date().toISOString() }
+                : s
+            );
+
+            // Si la orden ya había entrado a caja, registrar reverso de salida
+            let updatedMovements = cashMovements;
+            if (st === 'COMPLETED') {
+              updatedMovements = [
+                {
+                  id: `MOV-${Date.now()}`,
+                  date: new Date().toISOString(),
+                  type: 'OUT',
+                  category: `Anulación de Factura ${order.id}`,
+                  description: `Devolución / Anulación orden de ${order.customerName}`,
+                  amountUsd: order.totalUsd,
+                  currencyUsed: 'USD',
+                },
+                ...cashMovements,
+              ];
+            }
+
+            updateCloud({
+              products: updatedProducts,
+              sales: updatedSales,
+              cashMovements: updatedMovements,
+            });
+
+            if (editingOrder?.id === order.id) {
+              setEditingOrder(null);
+            }
+
+            showToast(`🔴 Orden ${order.id} ANULADA. El stock fue devuelto al inventario.`, 'info');
+          };
+
+          const buildUpdatedWhatsAppUrl = (order) => {
+            const itemsText = order.items
+              .map((i) => {
+                const prod = products.find((p) => p.id === i.productId);
+                const mode = i.saleMode || (prod ? getProductSaleMode(prod) : 'UNIT');
+                return `• ${formatMeasureQty(i.qty, mode)} de ${i.name} (${
+                  i.isWholesale ? 'Mayor' : 'Detal'
+                }) = ${formatUsd(i.qty * i.unitPrice)}`;
+              })
+              .join('\n');
+
+            const rate = order.exchangeRate || settings.exchangeRate;
+            const msg =
+              `🧾 *FACTURA EXACTA VERIFICADA - ${settings.storeName.toUpperCase()}*\n` +
+              `📋 *Orden N°:* ${order.id}\n` +
+              `👤 *Cliente:* ${order.customerName} (${order.customerCi})\n\n` +
+              `⚖️ *DETALLE DEFINITIVO (PESO/MEDIDA REAL):*\n${itemsText}\n\n` +
+              `🚚 *Delivery:* ${
+                order.deliveryUsd === 0 ? 'GRATIS 🎉' : formatUsd(order.deliveryUsd)
+              }\n` +
+              `💵 *TOTAL EXACTO A PAGAR USD:* ${formatUsd(order.totalUsd)}\n` +
+              `🇻🇪 *TOTAL EXACTO A PAGAR BS:* ${formatBs(order.totalUsd * rate)} _(Tasa: Bs. ${Number(
+                rate
+              ).toFixed(2)})_\n\n` +
+              `¡Tu pedido ya está pesado y listo! Envíanos el comprobante de pago para despachar de inmediato.`;
+
+            const clientPhoneDigits = (order.customerPhone || '').replace(/\D/g, '');
+            const waTarget =
+              clientPhoneDigits.length >= 10
+                ? clientPhoneDigits.startsWith('0')
+                  ? `58${clientPhoneDigits.slice(1)}`
+                  : clientPhoneDigits
+                : '';
+
+            return `https://wa.me/${waTarget}?text=${encodeURIComponent(msg)}`;
+          };
+
+          return (
+            <div className="space-y-6">
+              <div className="bg-white rounded-3xl border border-slate-200 p-5 shadow-xs space-y-4">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+                  <div>
+                    <h2 className="text-lg font-extrabold text-slate-900 flex items-center gap-2">
+                      <ClipboardList className="w-5 h-5 text-emerald-600" />
+                      Control de Facturas, Pesaje Real y Órdenes por Cédula
+                    </h2>
+                    <p className="text-xs text-slate-500">
+                      Busca por Cédula (CI) o N° de Orden, ajusta gramos/litros tras pesar, finaliza el pago o anula para reponer stock.
+                    </p>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-2">
+                    <div className="relative min-w-[250px] flex-1">
+                      <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                      <input
+                        type="text"
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        placeholder="Buscar Cédula (V-...), Cliente u Orden..."
+                        className="w-full pl-9 pr-8 py-2.5 bg-slate-100 border border-slate-200 rounded-xl text-xs font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      />
+                      {searchTerm && (
+                        <button
+                          onClick={() => setSearchTerm('')}
+                          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 cursor-pointer"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Filtros de Estado */}
+                <div className="flex flex-wrap gap-2">
+                  {[
+                    { id: 'ALL', label: `Todas (${sales.length})` },
+                    {
+                      id: 'PENDING',
+                      label: `🟡 Pendientes (${sales.filter((s) => s.status === 'PENDING').length})`,
+                    },
+                    {
+                      id: 'COMPLETED',
+                      label: `🟢 Finalizadas (${
+                        sales.filter((s) => (s.status || 'COMPLETED') === 'COMPLETED').length
+                      })`,
+                    },
+                    {
+                      id: 'CANCELLED',
+                      label: `🔴 Anuladas (${sales.filter((s) => s.status === 'CANCELLED').length})`,
+                    },
+                  ].map((st) => (
+                    <button
+                      key={st.id}
+                      onClick={() => setStatusFilter(st.id)}
+                      className={`px-3.5 py-1.5 rounded-xl text-xs font-extrabold transition cursor-pointer ${
+                        statusFilter === st.id
+                          ? 'bg-slate-900 text-white shadow-2xs'
+                          : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                      }`}
+                    >
+                      {st.label}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Ficha Completa del Cliente si se busca por Cédula o Nombre */}
+                {searchedCustomerProfile && (
+                  <div className="p-4 rounded-2xl bg-emerald-50/70 border border-emerald-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      {searchedCustomerProfile.photo ? (
+                        <img
+                          src={searchedCustomerProfile.photo}
+                          alt={searchedCustomerProfile.firstName}
+                          className="w-12 h-12 rounded-full object-cover border-2 border-emerald-600"
+                        />
+                      ) : (
+                        <div className="w-12 h-12 rounded-full bg-emerald-600 text-white flex items-center justify-center font-black text-lg">
+                          {searchedCustomerProfile.firstName[0]}
+                        </div>
+                      )}
+                      <div className="text-xs space-y-0.5">
+                        <span className="text-[10px] font-extrabold uppercase text-emerald-700">
+                          ✓ Ficha de Cliente Encontrada
+                        </span>
+                        <h4 className="font-extrabold text-slate-900 text-sm">
+                          {searchedCustomerProfile.firstName} {searchedCustomerProfile.lastName} —{' '}
+                          <span className="text-emerald-800">{searchedCustomerProfile.ci}</span>
+                        </h4>
+                        <p className="text-slate-600">
+                          <strong>Tel:</strong> {searchedCustomerProfile.phone} •{' '}
+                          <strong>Dirección:</strong> {searchedCustomerProfile.address}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="text-right text-xs">
+                      <span className="text-slate-500 block">Órdenes registradas:</span>
+                      <strong className="text-base font-black text-emerald-800">
+                        {sales.filter((s) => s.customerCi === searchedCustomerProfile.ci).length}
+                      </strong>
+                    </div>
+                  </div>
+                )}
+
+                {/* Lista de Facturas / Órdenes */}
+                <div className="space-y-3">
+                  {filteredOrders.length === 0 ? (
+                    <div className="py-12 text-center text-xs text-slate-400 bg-slate-50 rounded-2xl border border-slate-200">
+                      No hay facturas u órdenes que coincidan con tu búsqueda.
+                    </div>
+                  ) : (
+                    filteredOrders.map((order) => {
+                      const status = order.status || 'COMPLETED';
+                      const isPending = status === 'PENDING';
+                      const isCancelled = status === 'CANCELLED';
+
+                      return (
+                        <div
+                          key={order.id}
+                          className={`p-4 rounded-2xl border transition ${
+                            isPending
+                              ? 'bg-amber-50/40 border-amber-300'
+                              : isCancelled
+                              ? 'bg-red-50/30 border-red-200 opacity-75'
+                              : 'bg-white border-slate-200'
+                          }`}
+                        >
+                          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                            <div className="space-y-1.5 flex-1">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="font-black text-slate-900 text-sm">{order.id}</span>
+                                <span
+                                  className={`px-2.5 py-0.5 rounded-full text-[11px] font-extrabold ${
+                                    isPending
+                                      ? 'bg-amber-400 text-slate-950'
+                                      : isCancelled
+                                      ? 'bg-red-100 text-red-700'
+                                      : 'bg-emerald-100 text-emerald-800'
+                                  }`}
+                                >
+                                  {isPending
+                                    ? '🟡 PENDIENTE (Pesar / Cobrar)'
+                                    : isCancelled
+                                    ? '🔴 ANULADA (Stock Repuesto)'
+                                    : '🟢 FINALIZADA / PAGADA'}
+                                </span>
+                                <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-600 text-[10px] font-bold">
+                                  {order.channel === 'POS' ? 'Caja Física' : 'Web / WhatsApp'}
+                                </span>
+                                <span className="text-[11px] text-slate-400">
+                                  {new Date(order.date).toLocaleString('es-VE')}
+                                </span>
+                              </div>
+
+                              <div className="text-xs text-slate-700">
+                                <strong>Cliente:</strong> {order.customerName} •{' '}
+                                <strong>CI:</strong>{' '}
+                                <span className="font-extrabold text-slate-900">{order.customerCi}</span> •{' '}
+                                <strong>Tel:</strong> {order.customerPhone}
+                                {order.customerAddress && order.customerAddress !== 'Tienda Física' && (
+                                  <span className="block text-[11px] text-slate-500 mt-0.5">
+                                    📍 {order.customerAddress}
+                                  </span>
+                                )}
+                              </div>
+
+                              <div className="flex flex-wrap gap-1.5 pt-1">
+                                {order.items.map((item, idx) => {
+                                  const prod = products.find((p) => p.id === item.productId);
+                                  const mode =
+                                    item.saleMode || (prod ? getProductSaleMode(prod) : 'UNIT');
+                                  return (
+                                    <span
+                                      key={idx}
+                                      className="inline-flex items-center gap-1 bg-slate-100 border border-slate-200 px-2.5 py-1 rounded-lg text-[11px] font-semibold text-slate-800"
+                                    >
+                                      <strong>{formatMeasureQty(item.qty, mode)}</strong> {item.name} (
+                                      {formatUsd(item.qty * item.unitPrice)})
+                                    </span>
+                                  );
+                                })}
+                              </div>
+                            </div>
+
+                            <div className="flex flex-col sm:flex-row lg:flex-col items-start sm:items-center lg:items-end justify-between gap-3 border-t lg:border-t-0 pt-3 lg:pt-0 border-slate-200">
+                              <div className="lg:text-right">
+                                <span className="text-xs text-slate-500 block">
+                                  {order.paymentMethod}
+                                </span>
+                                <span className="text-xl font-black text-slate-900">
+                                  {formatUsd(order.totalUsd)}
+                                </span>
+                                <span className="block text-xs font-bold text-emerald-700">
+                                  {formatBs(order.totalBs)}
+                                </span>
+                              </div>
+
+                              {!isCancelled && (
+                                <div className="flex flex-wrap items-center gap-1.5">
+                                  <button
+                                    onClick={() => openOrderEditor(order)}
+                                    className="px-3 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer"
+                                    title="Ajustar peso real de balanza o quitar artículos"
+                                  >
+                                    <Scale className="w-3.5 h-3.5 text-amber-400" />
+                                    Editar Peso / Factura
+                                  </button>
+
+                                  {order.channel === 'ONLINE' && (
+                                    <a
+                                      href={buildUpdatedWhatsAppUrl(order)}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="px-3 py-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 text-xs font-bold flex items-center gap-1"
+                                      title="Enviar factura exacta al WhatsApp del cliente"
+                                    >
+                                      <MessageCircle className="w-3.5 h-3.5" />
+                                      WhatsApp
+                                    </a>
+                                  )}
+
+                                  {isPending && (
+                                    <button
+                                      onClick={() => handleFinalizeOrder(order)}
+                                      className="px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-extrabold flex items-center gap-1 shadow-xs cursor-pointer"
+                                    >
+                                      <CheckCircle2 className="w-3.5 h-3.5" />
+                                      Finalizar Pago
+                                    </button>
+                                  )}
+
+                                  <button
+                                    onClick={() => handleCancelOrder(order)}
+                                    className="px-3 py-2 rounded-xl bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 text-xs font-bold flex items-center gap-1 cursor-pointer"
+                                    title="Anular factura y devolver productos al stock"
+                                  >
+                                    <XCircle className="w-3.5 h-3.5" />
+                                    Anular
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+
+              {/* MODAL EDITOR POST-PESAJE / AJUSTE DE FACTURA */}
+              {editingOrder && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/65 backdrop-blur-xs p-4 overflow-y-auto">
+                  <div className="bg-white rounded-3xl max-w-2xl w-full shadow-2xl overflow-hidden my-8">
+                    <div className="bg-slate-900 text-white px-6 py-4 flex items-center justify-between">
+                      <div className="flex items-center gap-2.5">
+                        <Scale className="w-6 h-6 text-amber-400" />
+                        <div>
+                          <h3 className="font-extrabold text-base">
+                            Ajustar Pesaje / Editar Factura {editingOrder.id}
+                          </h3>
+                          <p className="text-xs text-slate-300">
+                            Cliente: {editingOrder.customerName} ({editingOrder.customerCi})
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => setEditingOrder(null)}
+                        className="p-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white cursor-pointer"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+
+                    <div className="p-6 space-y-4 max-h-[80vh] overflow-y-auto text-xs">
+                      <div className="p-3 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 flex items-start gap-2">
+                        <Info className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                        <span>
+                          Coloca el <strong>peso exacto en gramos (g)</strong> o{' '}
+                          <strong>volumen en mililitros (mL)</strong> que dio la balanza, o elimina algún producto sin stock. El total y el inventario se recalcularán automáticamente.
+                        </span>
+                      </div>
+
+                      <div className="space-y-2.5">
+                        {editingOrder.items.map((item, idx) => {
+                          const prod = products.find((p) => p.id === item.productId);
+                          const mode =
+                            item.saleMode || (prod ? getProductSaleMode(prod) : 'UNIT');
+                          const isMeasured = mode === 'WEIGHT' || mode === 'VOLUME';
+                          const minorVal = Math.round(item.qty * 1000);
+
+                          return (
+                            <div
+                              key={idx}
+                              className="p-3.5 rounded-2xl border border-slate-200 bg-slate-50 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                            >
+                              <div className="flex-1 min-w-0">
+                                <p className="font-extrabold text-slate-900 text-sm">{item.name}</p>
+                                <p className="text-[11px] text-slate-500">
+                                  Precio aplicado: <strong>{formatUsd(item.unitPrice)}</strong>{' '}
+                                  {formatBasePriceLabel(mode)} •{' '}
+                                  {item.isWholesale ? (
+                                    <span className="text-emerald-700 font-bold">Tarifa Mayor</span>
+                                  ) : (
+                                    <span>Tarifa Detal</span>
+                                  )}
+                                </p>
+                              </div>
+
+                              <div className="flex items-center gap-2">
+                                {isMeasured ? (
+                                  <div className="flex items-center gap-1.5">
+                                    <input
+                                      type="number"
+                                      min="1"
+                                      step="1"
+                                      value={minorVal}
+                                      onChange={(e) =>
+                                        handleUpdateItemQtyInOrder(idx, e.target.value, true)
+                                      }
+                                      className="w-24 px-2.5 py-2 border-2 border-amber-400 rounded-xl bg-white font-black text-slate-900 text-right"
+                                    />
+                                    <span className="font-extrabold text-slate-700">
+                                      {mode === 'WEIGHT' ? 'g' : 'mL'} ({item.qty.toFixed(3)}{' '}
+                                      {mode === 'WEIGHT' ? 'Kg' : 'Lt'})
+                                    </span>
+                                  </div>
+                                ) : (
+                                  <div className="flex items-center gap-1.5">
+                                    <input
+                                      type="number"
+                                      min="1"
+                                      step="1"
+                                      value={item.qty}
+                                      onChange={(e) =>
+                                        handleUpdateItemQtyInOrder(idx, e.target.value, false)
+                                      }
+                                      className="w-20 px-2.5 py-2 border border-slate-300 rounded-xl bg-white font-black text-slate-900 text-right"
+                                    />
+                                    <span className="font-bold text-slate-600">und</span>
+                                  </div>
+                                )}
+
+                                <div className="w-20 text-right">
+                                  <span className="font-black text-emerald-700 text-sm">
+                                    {formatUsd(item.qty * item.unitPrice)}
+                                  </span>
+                                </div>
+
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveItemFromOrder(idx)}
+                                  className="p-2 rounded-xl bg-red-50 hover:bg-red-100 text-red-600 cursor-pointer"
+                                  title="Quitar producto de la factura"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      <div className="p-4 rounded-2xl bg-slate-900 text-white flex items-center justify-between">
+                        <div>
+                          <span className="text-[11px] text-slate-400 block">
+                            Delivery: {formatUsd(editingOrder.deliveryUsd)}
+                          </span>
+                          <span className="text-xs font-bold text-slate-300">
+                            NUEVO TOTAL EXACTO:
+                          </span>
+                        </div>
+                        <div className="text-right">
+                          <span className="text-2xl font-black text-emerald-400 block">
+                            {formatUsd(editingOrder.totalUsd)}
+                          </span>
+                          <span className="text-sm font-extrabold text-amber-300">
+                            {formatBs(editingOrder.totalBs)}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="flex flex-wrap justify-end gap-2 pt-2">
+                        <button
+                          type="button"
+                          onClick={() => setEditingOrder(null)}
+                          className="px-4 py-2.5 rounded-xl border border-slate-200 text-slate-600 font-bold cursor-pointer"
+                        >
+                          Cancelar
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleSaveEditedOrder}
+                          className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold shadow-md cursor-pointer"
+                        >
+                          💾 Guardar Cambios y Recalcular
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        }
+
+        // ============================================================================
+        // CAJA FÍSICA (POS) CON SOPORTE DE PESO (Kg/g) Y LITROS (Lt/mL)
+        // ============================================================================
         function PosCashRegisterTab({
           settings,
           products,
@@ -2688,6 +3978,7 @@
           const [posCart, setPosCart] = useState([]);
           const [selectedCi, setSelectedCi] = useState('GENERAL');
           const [paymentMethod, setPaymentMethod] = useState('Efectivo Dólares ($)');
+          const [posMeasureProduct, setPosMeasureProduct] = useState(null);
 
           const filteredPosProducts = useMemo(() => {
             return products.filter((p) =>
@@ -2700,14 +3991,16 @@
               .map((item) => {
                 const product = products.find((p) => p.id === item.productId);
                 if (!product) return null;
+                const saleMode = getProductSaleMode(product);
                 const isWholesale = item.qty >= product.wholesaleMinQty;
                 const unitPrice = isWholesale ? product.wholesalePrice : product.retailPrice;
                 return {
                   ...item,
                   product,
+                  saleMode,
                   isWholesale,
                   unitPrice,
-                  lineTotal: unitPrice * item.qty,
+                  lineTotal: round3(unitPrice * item.qty),
                 };
               })
               .filter(Boolean);
@@ -2716,13 +4009,23 @@
           const posTotalUsd = enrichedPosCart.reduce((acc, i) => acc + i.lineTotal, 0);
           const posTotalBs = posTotalUsd * settings.exchangeRate;
 
+          const handlePosProductClick = (product) => {
+            if (product.stock <= 0) return;
+            const mode = getProductSaleMode(product);
+            if (mode === 'WEIGHT' || mode === 'VOLUME') {
+              setPosMeasureProduct(product);
+            } else {
+              addPosItem(product.id, 1);
+            }
+          };
+
           const addPosItem = (productId, delta = 1) => {
             const product = products.find((p) => p.id === productId);
             if (!product || product.stock <= 0) return;
 
             setPosCart((prev) => {
               const existing = prev.find((i) => i.productId === productId);
-              const nextQty = (existing ? existing.qty : 0) + delta;
+              const nextQty = round3((existing ? existing.qty : 0) + delta);
               if (nextQty <= 0) return prev.filter((i) => i.productId !== productId);
               if (nextQty > product.stock) {
                 showToast(`Stock máximo disponible: ${product.stock}`, 'warning');
@@ -2732,6 +4035,24 @@
                 return prev.map((i) => (i.productId === productId ? { ...i, qty: nextQty } : i));
               }
               return [...prev, { productId, qty: nextQty }];
+            });
+          };
+
+          const setPosItemQtyDirect = (productId, qty) => {
+            const product = products.find((p) => p.id === productId);
+            if (!product) return;
+            const clean = round3(qty);
+            if (clean <= 0) {
+              setPosCart((prev) => prev.filter((i) => i.productId !== productId));
+              return;
+            }
+            const clamped = Math.min(clean, product.stock);
+            setPosCart((prev) => {
+              const existing = prev.find((i) => i.productId === productId);
+              if (existing) {
+                return prev.map((i) => (i.productId === productId ? { ...i, qty: clamped } : i));
+              }
+              return [...prev, { productId, qty: clamped }];
             });
           };
 
@@ -2752,6 +4073,7 @@
               id: `POS-${Math.floor(1000 + Math.random() * 9000)}`,
               date: new Date().toISOString(),
               channel: 'POS',
+              status: 'COMPLETED',
               customerCi: customerObj ? customerObj.ci : 'CLIENTE-GENERAL',
               customerName: customerObj
                 ? `${customerObj.firstName} ${customerObj.lastName}`
@@ -2763,6 +4085,7 @@
                 productId: i.product.id,
                 name: i.product.name,
                 qty: i.qty,
+                saleMode: i.saleMode,
                 unitPrice: i.unitPrice,
                 costPrice: i.product.costPrice,
                 isWholesale: i.isWholesale,
@@ -2777,7 +4100,7 @@
 
             const updatedProducts = products.map((p) => {
               const sold = enrichedPosCart.find((i) => i.productId === p.id);
-              return sold ? { ...p, stock: Math.max(0, p.stock - sold.qty) } : p;
+              return sold ? { ...p, stock: Math.max(0, round3(p.stock - sold.qty)) } : p;
             });
 
             const updatedSales = [newSale, ...sales];
@@ -2811,7 +4134,7 @@
                   <div>
                     <h2 className="text-lg font-extrabold text-slate-900">Punto de Venta (Mostrador)</h2>
                     <p className="text-xs text-slate-500">
-                      Selecciona productos para facturar en caja física
+                      Toca productos por unidad, o pesa en balanza (Kg/g) y mide líquidos (Lt/mL)
                     </p>
                   </div>
                   <div className="relative sm:w-64">
@@ -2827,38 +4150,46 @@
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[540px] overflow-y-auto pr-1">
-                  {filteredPosProducts.map((p) => (
-                    <button
-                      key={p.id}
-                      onClick={() => addPosItem(p.id, 1)}
-                      disabled={p.stock <= 0}
-                      className="p-3 rounded-2xl border border-slate-200 hover:border-emerald-500 hover:bg-emerald-50/40 disabled:opacity-40 text-left flex items-center gap-3 transition cursor-pointer"
-                    >
-                      {p.image ? (
-                        <img
-                          src={p.image}
-                          alt={p.name}
-                          className="w-11 h-11 rounded-xl object-cover border border-slate-200 shrink-0"
-                        />
-                      ) : (
-                        <span className="text-3xl w-11 text-center shrink-0">{p.emoji}</span>
-                      )}
-                      <div className="flex-1 min-w-0">
-                        <p className="font-bold text-slate-800 text-sm truncate">{p.name}</p>
-                        <div className="flex items-center justify-between mt-1">
-                          <span className="text-xs font-extrabold text-emerald-700">
-                            {formatUsd(p.retailPrice)}{' '}
-                            <span className="font-normal text-slate-400">
-                              (Mayor: {formatUsd(p.wholesalePrice)})
+                  {filteredPosProducts.map((p) => {
+                    const mode = getProductSaleMode(p);
+                    return (
+                      <button
+                        key={p.id}
+                        onClick={() => handlePosProductClick(p)}
+                        disabled={p.stock <= 0}
+                        className="p-3 rounded-2xl border border-slate-200 hover:border-emerald-500 hover:bg-emerald-50/40 disabled:opacity-40 text-left flex items-center gap-3 transition cursor-pointer"
+                      >
+                        {p.image ? (
+                          <img
+                            src={p.image}
+                            alt={p.name}
+                            className="w-11 h-11 rounded-xl object-cover border border-slate-200 shrink-0"
+                          />
+                        ) : (
+                          <span className="text-3xl w-11 text-center shrink-0">{p.emoji}</span>
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-1.5">
+                            <p className="font-bold text-slate-800 text-sm truncate">{p.name}</p>
+                          </div>
+                          <div className="flex items-center justify-between mt-1">
+                            <span className="text-xs font-extrabold text-emerald-700">
+                              {formatUsd(p.retailPrice)} {formatBasePriceLabel(mode)}
                             </span>
-                          </span>
-                          <span className="text-[11px] font-semibold text-slate-500">
-                            Stock: {p.stock}
-                          </span>
+                            <span className="text-[11px] font-semibold text-slate-500">
+                              Stock: {formatMeasureQty(p.stock, mode)}
+                            </span>
+                          </div>
+                          {mode !== 'UNIT' && (
+                            <span className="inline-flex items-center gap-1 mt-1 text-[10px] font-extrabold text-amber-800 bg-amber-100 px-2 py-0.5 rounded">
+                              {mode === 'WEIGHT' ? <Scale className="w-3 h-3" /> : <Droplets className="w-3 h-3" />}
+                              {mode === 'WEIGHT' ? 'Balanza Kg/g' : 'Medida Lt/mL'}
+                            </span>
+                          )}
                         </div>
-                      </div>
-                    </button>
-                  ))}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
@@ -2921,42 +4252,62 @@
                         Haz clic en los productos de la izquierda para agregarlos al ticket.
                       </div>
                     ) : (
-                      enrichedPosCart.map((item) => (
-                        <div
-                          key={item.productId}
-                          className="p-2.5 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between gap-2"
-                        >
-                          <div className="min-w-0 flex-1">
-                            <p className="text-xs font-bold text-slate-800 truncate">{item.product.name}</p>
-                            <p className="text-[11px] text-slate-500">
-                              {formatUsd(item.unitPrice)} c/u{' '}
-                              {item.isWholesale && (
-                                <span className="text-emerald-700 font-bold">(Mayor)</span>
-                              )}
-                            </p>
+                      enrichedPosCart.map((item) => {
+                        const isMeasured = item.saleMode === 'WEIGHT' || item.saleMode === 'VOLUME';
+                        return (
+                          <div
+                            key={item.productId}
+                            className="p-2.5 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between gap-2"
+                          >
+                            <div className="min-w-0 flex-1">
+                              <p className="text-xs font-bold text-slate-800 truncate">{item.product.name}</p>
+                              <p className="text-[11px] text-slate-500">
+                                {formatUsd(item.unitPrice)} {formatBasePriceLabel(item.saleMode)}{' '}
+                                {item.isWholesale && (
+                                  <span className="text-emerald-700 font-bold">(Mayor)</span>
+                                )}
+                              </p>
+                            </div>
+                            {isMeasured ? (
+                              <div className="flex items-center gap-1">
+                                <button
+                                  onClick={() => setPosMeasureProduct(item.product)}
+                                  className="px-2 py-1 rounded bg-emerald-100 text-emerald-800 text-xs font-extrabold cursor-pointer"
+                                >
+                                  {formatMeasureQty(item.qty, item.saleMode)}
+                                </button>
+                                <button
+                                  onClick={() => setPosItemQtyDirect(item.productId, 0)}
+                                  className="p-1 text-red-500 cursor-pointer"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            ) : (
+                              <div className="flex items-center gap-1.5">
+                                <button
+                                  onClick={() => addPosItem(item.productId, -1)}
+                                  className="w-6 h-6 rounded bg-white border border-slate-200 flex items-center justify-center text-xs font-bold cursor-pointer"
+                                >
+                                  -
+                                </button>
+                                <span className="w-6 text-center text-xs font-extrabold">{item.qty}</span>
+                                <button
+                                  onClick={() => addPosItem(item.productId, 1)}
+                                  className="w-6 h-6 rounded bg-emerald-600 text-white flex items-center justify-center text-xs font-bold cursor-pointer"
+                                >
+                                  +
+                                </button>
+                              </div>
+                            )}
+                            <div className="text-right w-16">
+                              <span className="text-xs font-extrabold text-slate-900">
+                                {formatUsd(item.lineTotal)}
+                              </span>
+                            </div>
                           </div>
-                          <div className="flex items-center gap-1.5">
-                            <button
-                              onClick={() => addPosItem(item.productId, -1)}
-                              className="w-6 h-6 rounded bg-white border border-slate-200 flex items-center justify-center text-xs font-bold cursor-pointer"
-                            >
-                              -
-                            </button>
-                            <span className="w-6 text-center text-xs font-extrabold">{item.qty}</span>
-                            <button
-                              onClick={() => addPosItem(item.productId, 1)}
-                              className="w-6 h-6 rounded bg-emerald-600 text-white flex items-center justify-center text-xs font-bold cursor-pointer"
-                            >
-                              +
-                            </button>
-                          </div>
-                          <div className="text-right w-16">
-                            <span className="text-xs font-extrabold text-slate-900">
-                              {formatUsd(item.lineTotal)}
-                            </span>
-                          </div>
-                        </div>
-                      ))
+                        );
+                      })
                     )}
                   </div>
                 </div>
@@ -2987,10 +4338,27 @@
                   </button>
                 </div>
               </div>
+
+              {posMeasureProduct && (
+                <MeasureSelectorModal
+                  product={posMeasureProduct}
+                  currentQty={posCart.find((i) => i.productId === posMeasureProduct.id)?.qty || 0}
+                  exchangeRate={settings.exchangeRate}
+                  brandPrimary={settings.primaryColor || '#059669'}
+                  onConfirm={(qtyMajor) => {
+                    setPosItemQtyDirect(posMeasureProduct.id, qtyMajor);
+                    setPosMeasureProduct(null);
+                  }}
+                  onClose={() => setPosMeasureProduct(null)}
+                />
+              )}
             </div>
           );
         }
 
+        // ============================================================================
+        // GESTIÓN DE INVENTARIO: DESCRIPCIÓN, ELIMINAR PRODUCTO Y MODO DE VENTA (UND/KG/LT)
+        // ============================================================================
         function InventoryManagementTab({
           settings,
           departments,
@@ -3034,7 +4402,9 @@
               return;
             }
             const fallbackDept = departments.find((d) => d.id !== dept.id)?.name || 'General';
-            const updatedProducts = products.map((p) => (p.department === dept.name ? { ...p, department: fallbackDept } : p));
+            const updatedProducts = products.map((p) =>
+              p.department === dept.name ? { ...p, department: fallbackDept } : p
+            );
             const updatedDepts = departments.filter((d) => d.id !== dept.id);
             updateCloud({ products: updatedProducts, departments: updatedDepts });
             showToast(`Departamento "${dept.name}" eliminado`);
@@ -3044,6 +4414,7 @@
             setEditingProduct({
               id: `prod-${Date.now()}`,
               name: '',
+              description: '',
               department: departments[0]?.name || 'Víveres',
               emoji: '📦',
               image: null,
@@ -3053,6 +4424,7 @@
               wholesaleMinQty: 5,
               stock: 20,
               isOffer: false,
+              saleMode: 'UNIT',
               unit: 'Unidad',
               isNew: true,
             });
@@ -3062,7 +4434,7 @@
             const file = e.target.files?.[0];
             if (!file) return;
             try {
-              const compressed = await compressImageFile(file, 450, 0.8);
+              const compressed = await compressImageFile(file, 520, 0.82);
               setEditingProduct((prev) => ({ ...prev, image: compressed }));
               showToast('Foto JPG del producto cargada');
             } catch (err) {
@@ -3074,19 +4446,29 @@
             e.preventDefault();
             if (!editingProduct.name.trim()) return;
 
+            const mode = editingProduct.saleMode || 'UNIT';
+            const defaultUnit =
+              mode === 'WEIGHT'
+                ? 'Kilogramo (Kg)'
+                : mode === 'VOLUME'
+                ? 'Litro (Lt)'
+                : editingProduct.unit || 'Unidad';
+
             const cleanProduct = {
               id: editingProduct.id,
               name: editingProduct.name.trim(),
+              description: (editingProduct.description || '').trim(),
               department: editingProduct.department,
               emoji: editingProduct.emoji || '📦',
               image: editingProduct.image || null,
               costPrice: Number(editingProduct.costPrice),
               retailPrice: Number(editingProduct.retailPrice),
               wholesalePrice: Number(editingProduct.wholesalePrice),
-              wholesaleMinQty: Math.max(2, Number(editingProduct.wholesaleMinQty)),
-              stock: Math.max(0, Number(editingProduct.stock)),
+              wholesaleMinQty: Math.max(1, Number(editingProduct.wholesaleMinQty)),
+              stock: Math.max(0, round3(Number(editingProduct.stock))),
               isOffer: Boolean(editingProduct.isOffer),
-              unit: editingProduct.unit || 'Unidad',
+              saleMode: mode,
+              unit: defaultUnit,
             };
 
             const exists = products.some((p) => p.id === cleanProduct.id);
@@ -3097,6 +4479,15 @@
             setProducts(updatedProducts);
             setEditingProduct(null);
             showToast('Producto guardado y sincronizado en la nube');
+          };
+
+          const handleDeleteProduct = (product) => {
+            const updatedProducts = products.filter((p) => p.id !== product.id);
+            setProducts(updatedProducts);
+            if (editingProduct?.id === product.id) {
+              setEditingProduct(null);
+            }
+            showToast(`🗑️ Producto "${product.name}" eliminado del catálogo`, 'info');
           };
 
           const toggleOfferQuick = (id) => {
@@ -3133,7 +4524,7 @@
                     type="text"
                     value={newDeptName}
                     onChange={(e) => setNewDeptName(e.target.value)}
-                    placeholder="Nombre del nuevo departamento (Ej: Ferretería, Farmacia...)"
+                    placeholder="Nombre del nuevo departamento (Ej: Charcutería, Líquidos...)"
                     className="flex-1 min-w-[220px] px-3.5 py-2 border border-slate-300 rounded-xl text-xs font-semibold"
                   />
                   <button
@@ -3170,10 +4561,10 @@
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div>
                     <h2 className="text-lg font-extrabold text-slate-900">
-                      Gestión de Inventario, Fotos y Precios
+                      Gestión de Inventario, Peso (Kg), Litros (Lt) y Descripciones
                     </h2>
                     <p className="text-xs text-slate-500">
-                      Sube fotos JPG a tus productos, edita precios al detal, mayor, costos y stock
+                      Configura productos por Unidad, por Peso (Kg/g) o por Litro (Lt/mL), añade descripciones o elimina artículos
                     </p>
                   </div>
 
@@ -3203,18 +4594,18 @@
                     <thead>
                       <tr className="border-b border-slate-200 text-[11px] font-extrabold uppercase text-slate-500 bg-slate-50">
                         <th className="py-3 px-3 rounded-tl-xl">Producto</th>
+                        <th className="py-3 px-3">Modalidad</th>
                         <th className="py-3 px-3">Costo ($)</th>
                         <th className="py-3 px-3">Venta Detal</th>
                         <th className="py-3 px-3">Venta Mayor</th>
-                        <th className="py-3 px-3">Ganancia/Und</th>
                         <th className="py-3 px-3">Stock</th>
                         <th className="py-3 px-3">Oferta</th>
-                        <th className="py-3 px-3 text-right rounded-tr-xl">Editar</th>
+                        <th className="py-3 px-3 text-right rounded-tr-xl">Acciones</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 text-xs">
                       {filteredInv.map((p) => {
-                        const profitRetail = p.retailPrice - p.costPrice;
+                        const mode = getProductSaleMode(p);
                         return (
                           <tr key={p.id} className="hover:bg-slate-50/80 transition">
                             <td className="py-3 px-3">
@@ -3228,18 +4619,38 @@
                                 ) : (
                                   <span className="text-2xl w-10 text-center shrink-0">{p.emoji}</span>
                                 )}
-                                <div>
+                                <div className="max-w-xs">
                                   <p className="font-bold text-slate-900">{p.name}</p>
-                                  <span className="text-[11px] text-slate-400">{p.department}</span>
+                                  <span className="text-[11px] text-slate-400 block">{p.department}</span>
+                                  {p.description && (
+                                    <span className="text-[10px] text-slate-500 line-clamp-1">
+                                      {p.description}
+                                    </span>
+                                  )}
                                 </div>
                               </div>
+                            </td>
+                            <td className="py-3 px-3">
+                              {mode === 'WEIGHT' ? (
+                                <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-amber-100 text-amber-900 font-extrabold text-[11px]">
+                                  <Scale className="w-3 h-3" /> Peso (Kg/g)
+                                </span>
+                              ) : mode === 'VOLUME' ? (
+                                <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-sky-100 text-sky-900 font-extrabold text-[11px]">
+                                  <Droplets className="w-3 h-3" /> Litro (Lt/mL)
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-slate-100 text-slate-700 font-bold text-[11px]">
+                                  Unidad
+                                </span>
+                              )}
                             </td>
                             <td className="py-3 px-3 font-semibold text-slate-600">
                               {formatUsd(p.costPrice)}
                             </td>
                             <td className="py-3 px-3">
                               <span className="font-extrabold text-slate-900 block">
-                                {formatUsd(p.retailPrice)}
+                                {formatUsd(p.retailPrice)} {formatBasePriceLabel(mode)}
                               </span>
                               <span className="text-[10px] text-slate-400">
                                 {formatBs(p.retailPrice * settings.exchangeRate)}
@@ -3250,11 +4661,8 @@
                                 {formatUsd(p.wholesalePrice)}
                               </span>
                               <span className="text-[10px] text-slate-400">
-                                Desde {p.wholesaleMinQty} und
+                                Desde {formatMeasureQty(p.wholesaleMinQty, mode)}
                               </span>
-                            </td>
-                            <td className="py-3 px-3 font-bold text-emerald-600">
-                              +{formatUsd(profitRetail)}
                             </td>
                             <td className="py-3 px-3">
                               <span
@@ -3266,7 +4674,7 @@
                                     : 'bg-emerald-100 text-emerald-800'
                                 }`}
                               >
-                                {p.stock} und
+                                {formatMeasureQty(p.stock, mode)}
                               </span>
                             </td>
                             <td className="py-3 px-3">
@@ -3282,13 +4690,28 @@
                               </button>
                             </td>
                             <td className="py-3 px-3 text-right">
-                              <button
-                                onClick={() => setEditingProduct(p)}
-                                className="p-2 rounded-xl bg-slate-100 hover:bg-emerald-100 text-slate-700 hover:text-emerald-700 transition cursor-pointer"
-                                title="Editar Producto"
-                              >
-                                <Edit3 className="w-4 h-4" />
-                              </button>
+                              <div className="inline-flex items-center gap-1.5">
+                                <button
+                                  onClick={() =>
+                                    setEditingProduct({
+                                      ...p,
+                                      saleMode: getProductSaleMode(p),
+                                      description: p.description || '',
+                                    })
+                                  }
+                                  className="p-2 rounded-xl bg-slate-100 hover:bg-emerald-100 text-slate-700 hover:text-emerald-700 transition cursor-pointer"
+                                  title="Editar Producto"
+                                >
+                                  <Edit3 className="w-4 h-4" />
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteProduct(p)}
+                                  className="p-2 rounded-xl bg-red-50 hover:bg-red-100 text-red-600 transition cursor-pointer"
+                                  title="Eliminar Producto"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              </div>
                             </td>
                           </tr>
                         );
@@ -3303,7 +4726,7 @@
                   <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl space-y-4 my-8">
                     <div className="flex items-center justify-between">
                       <h3 className="font-extrabold text-slate-900 text-lg">
-                        {editingProduct.isNew ? 'Agregar Nuevo Producto' : 'Editar Producto y Foto'}
+                        {editingProduct.isNew ? 'Agregar Nuevo Producto' : 'Editar Producto'}
                       </h3>
                       <button
                         onClick={() => setEditingProduct(null)}
@@ -3329,7 +4752,7 @@
                         <div className="flex-1 space-y-1">
                           <p className="font-bold text-slate-800">Fotografía del Producto (JPG/PNG)</p>
                           <p className="text-[11px] text-slate-500">
-                            Sube una foto real para mostrar en el catálogo o usa un ícono.
+                            El cliente podrá tocar esta imagen para verla ampliada junto con su descripción.
                           </p>
                           <input
                             ref={productPhotoRef}
@@ -3364,7 +4787,7 @@
 
                       <div className="grid grid-cols-4 gap-3">
                         <div>
-                          <label className="block font-bold text-slate-700 mb-1">Emoji Respaldo</label>
+                          <label className="block font-bold text-slate-700 mb-1">Emoji</label>
                           <input
                             type="text"
                             value={editingProduct.emoji}
@@ -3385,9 +4808,73 @@
                             onChange={(e) =>
                               setEditingProduct({ ...editingProduct, name: e.target.value })
                             }
-                            placeholder="Ej: Pasta Larga Primor 1Kg"
+                            placeholder="Ej: Queso Amarillo Gouda (Por Kg)"
                             className="w-full px-3 py-2.5 border border-slate-300 rounded-xl text-sm"
                           />
+                        </div>
+                      </div>
+
+                      {/* Campo de Descripción del Producto */}
+                      <div>
+                        <label className="block font-bold text-slate-700 mb-1">
+                          Descripción del Producto (Visible para el Cliente)
+                        </label>
+                        <textarea
+                          rows={2}
+                          value={editingProduct.description || ''}
+                          onChange={(e) =>
+                            setEditingProduct({ ...editingProduct, description: e.target.value })
+                          }
+                          placeholder="Ej: Queso importado madurado, ideal para sándwiches y gratinar. Se pesa exacto en balanza..."
+                          className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs"
+                        />
+                      </div>
+
+                      {/* Selector de Modalidad de Venta: Unidad, Peso (Kg/g) o Litro (Lt/mL) */}
+                      <div className="p-3 rounded-2xl bg-amber-50/70 border border-amber-200 space-y-2">
+                        <label className="block font-extrabold text-slate-800">
+                          ¿Cómo se vende este producto?
+                        </label>
+                        <div className="grid grid-cols-3 gap-2">
+                          {[
+                            { id: 'UNIT', label: 'Por Unidad', sub: 'Paquete / Caja' },
+                            { id: 'WEIGHT', label: 'Por Peso (Kg)', sub: 'Gramos / Kilos' },
+                            { id: 'VOLUME', label: 'Por Litro (Lt)', sub: 'Mililitros / Litros' },
+                          ].map((opt) => {
+                            const selected = (editingProduct.saleMode || 'UNIT') === opt.id;
+                            return (
+                              <button
+                                key={opt.id}
+                                type="button"
+                                onClick={() =>
+                                  setEditingProduct({
+                                    ...editingProduct,
+                                    saleMode: opt.id,
+                                    unit:
+                                      opt.id === 'WEIGHT'
+                                        ? 'Kilogramo (Kg)'
+                                        : opt.id === 'VOLUME'
+                                        ? 'Litro (Lt)'
+                                        : 'Unidad',
+                                  })
+                                }
+                                className={`p-2 rounded-xl border text-left transition cursor-pointer ${
+                                  selected
+                                    ? 'bg-slate-900 text-white border-slate-900 shadow-xs'
+                                    : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                                }`}
+                              >
+                                <span className="block font-extrabold text-xs">{opt.label}</span>
+                                <span
+                                  className={`block text-[10px] ${
+                                    selected ? 'text-amber-300' : 'text-slate-400'
+                                  }`}
+                                >
+                                  {opt.sub}
+                                </span>
+                              </button>
+                            );
+                          })}
                         </div>
                       </div>
 
@@ -3409,14 +4896,16 @@
                           </select>
                         </div>
                         <div>
-                          <label className="block font-bold text-slate-700 mb-1">Presentación</label>
+                          <label className="block font-bold text-slate-700 mb-1">
+                            Etiqueta Presentación
+                          </label>
                           <input
                             type="text"
                             value={editingProduct.unit}
                             onChange={(e) =>
                               setEditingProduct({ ...editingProduct, unit: e.target.value })
                             }
-                            placeholder="Ej: Paquete 1Kg"
+                            placeholder="Ej: Kilogramo (Kg) / Litro (Lt)"
                             className="w-full px-3 py-2.5 border border-slate-300 rounded-xl"
                           />
                         </div>
@@ -3424,7 +4913,9 @@
 
                       <div className="grid grid-cols-3 gap-3 bg-slate-50 p-3 rounded-2xl border border-slate-200">
                         <div>
-                          <label className="block font-bold text-slate-700 mb-1">Costo Compra ($)</label>
+                          <label className="block font-bold text-slate-700 mb-1">
+                            Costo {formatBasePriceLabel(editingProduct.saleMode || 'UNIT')} ($)
+                          </label>
                           <input
                             type="number"
                             step="0.01"
@@ -3438,7 +4929,9 @@
                           />
                         </div>
                         <div>
-                          <label className="block font-bold text-slate-700 mb-1">Precio Detal ($)</label>
+                          <label className="block font-bold text-slate-700 mb-1">
+                            Detal {formatBasePriceLabel(editingProduct.saleMode || 'UNIT')} ($)
+                          </label>
                           <input
                             type="number"
                             step="0.01"
@@ -3453,7 +4946,7 @@
                         </div>
                         <div>
                           <label className="block font-bold text-emerald-700 mb-1">
-                            Precio Mayor ($)
+                            Mayor {formatBasePriceLabel(editingProduct.saleMode || 'UNIT')} ($)
                           </label>
                           <input
                             type="number"
@@ -3472,11 +4965,12 @@
                       <div className="grid grid-cols-3 gap-3 items-end">
                         <div>
                           <label className="block font-bold text-slate-700 mb-1">
-                            Cant. Mín. Mayor
+                            Mín. Mayor ({editingProduct.saleMode === 'WEIGHT' ? 'Kg' : editingProduct.saleMode === 'VOLUME' ? 'Lt' : 'und'})
                           </label>
                           <input
                             type="number"
-                            min="2"
+                            step="0.1"
+                            min="1"
                             required
                             value={editingProduct.wholesaleMinQty}
                             onChange={(e) =>
@@ -3486,9 +4980,12 @@
                           />
                         </div>
                         <div>
-                          <label className="block font-bold text-slate-700 mb-1">Stock Disponible</label>
+                          <label className="block font-bold text-slate-700 mb-1">
+                            Stock ({editingProduct.saleMode === 'WEIGHT' ? 'Kg' : editingProduct.saleMode === 'VOLUME' ? 'Lt' : 'und'})
+                          </label>
                           <input
                             type="number"
+                            step="0.001"
                             min="0"
                             required
                             value={editingProduct.stock}
@@ -3511,20 +5008,35 @@
                         </label>
                       </div>
 
-                      <div className="flex justify-end gap-2 pt-3">
-                        <button
-                          type="button"
-                          onClick={() => setEditingProduct(null)}
-                          className="px-4 py-2.5 rounded-xl border border-slate-200 font-bold text-slate-600 cursor-pointer"
-                        >
-                          Cancelar
-                        </button>
-                        <button
-                          type="submit"
-                          className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold shadow-md cursor-pointer"
-                        >
-                          Guardar Producto
-                        </button>
+                      <div className="flex items-center justify-between gap-2 pt-3 border-t border-slate-100">
+                        {!editingProduct.isNew ? (
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteProduct(editingProduct)}
+                            className="px-3.5 py-2.5 rounded-xl bg-red-50 hover:bg-red-100 text-red-600 font-bold flex items-center gap-1.5 cursor-pointer"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                            Eliminar Producto
+                          </button>
+                        ) : (
+                          <div />
+                        )}
+
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setEditingProduct(null)}
+                            className="px-4 py-2.5 rounded-xl border border-slate-200 font-bold text-slate-600 cursor-pointer"
+                          >
+                            Cancelar
+                          </button>
+                          <button
+                            type="submit"
+                            className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold shadow-md cursor-pointer"
+                          >
+                            Guardar Producto
+                          </button>
+                        </div>
                       </div>
                     </form>
                   </div>
@@ -3796,6 +5308,10 @@
           const filteredSales = useMemo(() => {
             const now = new Date();
             return sales.filter((s) => {
+              // Solo contar ventas finalizadas (excluir anuladas y pendientes no cobradas)
+              const st = s.status || 'COMPLETED';
+              if (st !== 'COMPLETED') return false;
+
               const d = new Date(s.date);
               const diffMs = now - d;
               const diffDays = diffMs / (1000 * 60 * 60 * 24);
@@ -3834,6 +5350,8 @@
 
             sales.forEach((s) => {
               if (!s.customerCi || s.customerCi === 'CLIENTE-GENERAL') return;
+              if ((s.status || 'COMPLETED') !== 'COMPLETED') return;
+
               if (!map[s.customerCi]) {
                 const profile = customers.find((c) => c.ci === s.customerCi);
                 map[s.customerCi] = {
@@ -3877,10 +5395,10 @@
               <div className="bg-white p-4 rounded-3xl border border-slate-200 flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <h2 className="text-lg font-extrabold text-slate-900">
-                    Resumen Financiero y Ganancias
+                    Resumen Financiero y Ganancias (Ventas Finalizadas)
                   </h2>
                   <p className="text-xs text-slate-500">
-                    Calculado automáticamente según el costo y precio de venta de cada producto
+                    Las órdenes anuladas o pendientes no alteran tu ganancia real hasta que se finalicen
                   </p>
                 </div>
 
@@ -3909,7 +5427,7 @@
 
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-xs">
-                  <span className="text-xs font-bold text-slate-500">VENTAS TOTALES</span>
+                  <span className="text-xs font-bold text-slate-500">VENTAS COBRADAS</span>
                   <p className="text-2xl font-black text-slate-900 mt-1">
                     {formatUsd(kpis.totalSalesUsd)}
                   </p>
@@ -3942,7 +5460,7 @@
                 </div>
 
                 <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-xs">
-                  <span className="text-xs font-bold text-slate-500">PEDIDOS REALIZADOS</span>
+                  <span className="text-xs font-bold text-slate-500">VENTAS COMPLETADAS</span>
                   <p className="text-2xl font-black text-slate-900 mt-1">{kpis.totalOrders}</p>
                   <div className="flex items-center gap-2 mt-1 text-[11px] font-semibold">
                     <span className="text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded">
@@ -4104,7 +5622,6 @@
                 </div>
               </div>
 
-              {/* Vista Previa Rápida en Vivo */}
               <div className="rounded-2xl border border-slate-200 overflow-hidden shadow-xs">
                 {form.topBannerActive && (
                   <div
@@ -4144,7 +5661,6 @@
               </div>
 
               <form onSubmit={handleSaveSettings} className="space-y-6 text-sm">
-                {/* 1. Logo y Datos */}
                 <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-4">
                   <h3 className="text-xs font-extrabold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
                     <ImageIcon className="w-4 h-4 text-emerald-600" />
@@ -4224,7 +5740,6 @@
                   </div>
                 </div>
 
-                {/* 2. Textos de Portada y Cintillo de Anuncios */}
                 <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-4">
                   <h3 className="text-xs font-extrabold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
                     <Megaphone className="w-4 h-4 text-emerald-600" />
@@ -4305,7 +5820,6 @@
                   </div>
                 </div>
 
-                {/* 3. Paleta de Colores */}
                 <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-4">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <h3 className="text-xs font-extrabold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
@@ -4393,7 +5907,6 @@
                   </div>
                 </div>
 
-                {/* 4. Tasa, Delivery y Seguridad */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-xs font-bold text-emerald-700 mb-1">
