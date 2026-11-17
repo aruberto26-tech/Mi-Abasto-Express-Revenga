@@ -1365,7 +1365,7 @@
 
             const totalUsd = Math.max(0, round3(subtotalUsd + deliveryUsd - couponDiscountUsd - cashbackUsedUsd));
             const totalBs = totalUsd * settings.exchangeRate;
-            const earnedCashbackUsd = round3(totalUsd * 0.02);
+            const earnedCashbackUsd = round3(totalUsd * 0.01);
 
             return {
               subtotalUsd,
