@@ -222,6 +222,7 @@
           freeDeliveryThreshold: 10.00,
           deliveryFee: 1.50,
           adminPin: 'admin2026',
+          festiveTheme: 'NONE',
         };
 
         const INITIAL_DEPARTMENTS = [
@@ -521,14 +522,14 @@
             label: 'Dueño / Propietario',
             badgeColor: 'bg-amber-400 text-slate-950',
             description: 'Acceso total: finanzas, nómina, proveedores, arqueos, inventario, POS y configuración.',
-            allowedTabs: ['ORDERS', 'POS', 'INVENTORY', 'CASH', 'SUPPLIERS', 'PAYROLL', 'STAFF', 'STATS', 'SETTINGS'],
+            allowedTabs: ['ORDERS', 'POS', 'INVENTORY', 'CASH', 'SUPPLIERS', 'FIXED_EXPENSES', 'PAYROLL', 'ROTATION', 'STAFF', 'STATS', 'SETTINGS'],
           },
           MANAGER: {
             key: 'MANAGER',
             label: 'Gerente General',
             badgeColor: 'bg-emerald-600 text-white',
             description: 'Operaciones completas: órdenes, POS, inventario, caja, proveedores y nómina.',
-            allowedTabs: ['ORDERS', 'POS', 'INVENTORY', 'CASH', 'SUPPLIERS', 'PAYROLL', 'STATS'],
+            allowedTabs: ['ORDERS', 'POS', 'INVENTORY', 'CASH', 'SUPPLIERS', 'FIXED_EXPENSES', 'PAYROLL', 'ROTATION', 'STATS'],
           },
           SUPERVISOR: {
             key: 'SUPERVISOR',
@@ -573,8 +574,8 @@
         ];
 
         const INITIAL_SUPPLIERS = [
-          { id: 'prov-1', name: 'Distribuidora Alimentos Centro', rif: 'J-30123456-7', phone: '0414-2223344', category: 'Víveres y Harinas' },
-          { id: 'prov-2', name: 'Lácteos y Quesos El Llano C.A.', rif: 'J-40987654-1', phone: '0412-8889900', category: 'Charcutería y Lácteos' },
+          { id: 'prov-1', name: 'Distribuidora Alimentos Centro', rif: 'J-30123456-7', phone: '0414-2223344', category: 'Víveres y Harinas', paymentMethods: 'Pago Móvil 0414-2223344 / Transferencia Banesco' },
+          { id: 'prov-2', name: 'Lácteos y Quesos El Llano C.A.', rif: 'J-40987654-1', phone: '0412-8889900', category: 'Charcutería y Lácteos', paymentMethods: 'Zelle: pagos@elllano.com / Efectivo' },
         ];
 
         const INITIAL_PAYABLES = [
@@ -629,6 +630,20 @@
             advanceNotes: '',
             active: true,
           },
+        ];
+
+                const INITIAL_FIXED_EXPENSES = [
+          { id: 'fix-1', name: 'Alquiler de Local', category: 'Alquiler', monthlyAmountUsd: 150.00, paidThisMonthUsd: 50.00, dueDay: 5 },
+          { id: 'fix-2', name: 'Servicio Eléctrico (Corpoelec)', category: 'Luz', monthlyAmountUsd: 25.00, paidThisMonthUsd: 25.00, dueDay: 15 },
+          { id: 'fix-3', name: 'Servicio de Agua', category: 'Agua', monthlyAmountUsd: 10.00, paidThisMonthUsd: 0, dueDay: 20 },
+          { id: 'fix-4', name: 'Internet Fibra Óptica', category: 'Internet', monthlyAmountUsd: 35.00, paidThisMonthUsd: 35.00, dueDay: 10 },
+          { id: 'fix-5', name: 'Impuestos Municipales (Alcaldía)', category: 'Impuestos Alcaldía', monthlyAmountUsd: 40.00, paidThisMonthUsd: 0, dueDay: 25 },
+          { id: 'fix-6', name: 'Impuestos Nacionales (SENIAT)', category: 'Impuestos SENIAT', monthlyAmountUsd: 60.00, paidThisMonthUsd: 20.00, dueDay: 28 },
+          { id: 'fix-7', name: 'Honorarios Contador', category: 'Contable', monthlyAmountUsd: 50.00, paidThisMonthUsd: 0, dueDay: 30 },
+        ];
+
+        const INITIAL_FIXED_HISTORY = [
+          { id: 'fhist-1', date: new Date().toISOString(), expenseName: 'Alquiler de Local', category: 'Alquiler', amountUsd: 50.00, monthKey: new Date().toISOString().slice(0, 7), notes: 'Primer abono mensual' },
         ];
 
         const INITIAL_COUPONS = [
@@ -1127,6 +1142,18 @@
             updateCloud({ coupons: val });
           };
 
+          const fixedExpenses = cloudData?.fixedExpenses || INITIAL_FIXED_EXPENSES;
+          const setFixedExpenses = (newVal) => {
+            const val = typeof newVal === 'function' ? newVal(fixedExpenses) : newVal;
+            updateCloud({ fixedExpenses: val });
+          };
+
+          const fixedHistory = cloudData?.fixedHistory || INITIAL_FIXED_HISTORY;
+          const setFixedHistory = (newVal) => {
+            const val = typeof newVal === 'function' ? newVal(fixedHistory) : newVal;
+            updateCloud({ fixedHistory: val });
+          };
+
           const [currentUserCi, setCurrentUserCiState] = useState(() => obtenerSesionClienteGuardada());
 
           const setCurrentUserCi = (ci) => {
@@ -1202,6 +1229,8 @@
                     payables: INITIAL_PAYABLES,
                     employees: INITIAL_EMPLOYEES,
                     coupons: INITIAL_COUPONS,
+                    fixedExpenses: INITIAL_FIXED_EXPENSES,
+                    fixedHistory: INITIAL_FIXED_HISTORY,
                   };
                   setDoc(docRef, initial);
                   setCloudData(initial);
@@ -1233,26 +1262,33 @@
           }, [isCloudLoaded, currentUserCi]);
 
           const updateCloud = (updatedFields) => {
-            const newData = {
-              settings,
-              departments,
-              products,
-              customers,
-              sales,
-              cashMovements,
-              staffUsers,
-              cashShifts,
-              suppliers,
-              payables,
-              employees,
-              coupons,
-              ...updatedFields,
-            };
-            setCloudData(newData);
-            const docRef = doc(db, 'abasto_data', 'main_store');
-            setDoc(docRef, newData, { merge: true }).catch((err) =>
-              console.error('Error guardando en nube:', err)
-            );
+            setCloudData((prevCloud) => {
+              const baseData = prevCloud || {
+                settings: INITIAL_SETTINGS,
+                departments: INITIAL_DEPARTMENTS,
+                products: INITIAL_PRODUCTS,
+                customers: INITIAL_CUSTOMERS,
+                sales: INITIAL_SALES,
+                cashMovements: INITIAL_CASH_MOVEMENTS,
+                staffUsers: INITIAL_STAFF_USERS,
+                cashShifts: INITIAL_CASH_SHIFTS,
+                suppliers: INITIAL_SUPPLIERS,
+                payables: INITIAL_PAYABLES,
+                employees: INITIAL_EMPLOYEES,
+                coupons: INITIAL_COUPONS,
+                fixedExpenses: INITIAL_FIXED_EXPENSES,
+                fixedHistory: INITIAL_FIXED_HISTORY,
+              };
+              const newData = {
+                ...baseData,
+                ...updatedFields,
+              };
+              const docRef = doc(db, 'abasto_data', 'main_store');
+              setDoc(docRef, newData, { merge: true }).catch((err) =>
+                console.error('Error guardando en nube:', err)
+              );
+              return newData;
+            });
           };
 
           const saveCustomerToCloudAndSession = (customerRecord) => {
@@ -1608,18 +1644,20 @@
           }, [departments]);
 
           const filteredProducts = useMemo(() => {
-            return products.filter((p) => {
-              const matchesSearch =
-                p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                p.department.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                (p.description || '').toLowerCase().includes(searchQuery.toLowerCase());
+            return products
+              .filter((p) => {
+                const matchesSearch =
+                  p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                  p.department.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                  (p.description || '').toLowerCase().includes(searchQuery.toLowerCase());
 
-              if (!matchesSearch) return false;
+                if (!matchesSearch) return false;
 
-              if (selectedDepartment === 'Todos') return true;
-              if (selectedDepartment === 'Ofertas y Promociones') return p.isOffer;
-              return p.department === selectedDepartment;
-            });
+                if (selectedDepartment === 'Todos') return true;
+                if (selectedDepartment === 'Ofertas y Promociones') return p.isOffer;
+                return p.department === selectedDepartment;
+              })
+              .sort((a, b) => (b.isOffer ? 1 : 0) - (a.isOffer ? 1 : 0));
           }, [products, searchQuery, selectedDepartment]);
 
           const pendingOrdersCount = useMemo(
@@ -1665,6 +1703,19 @@
                     <CheckCircle2 className="w-5 h-5 shrink-0" />
                     <span>{toast.message}</span>
                   </div>
+                </div>
+              )}
+
+                            {settings.festiveTheme && settings.festiveTheme !== 'NONE' && (
+                <div className="bg-gradient-to-r from-red-700 via-amber-500 to-emerald-700 text-white text-xs font-extrabold py-2 px-4 text-center shadow-md flex items-center justify-center gap-2">
+                  <span>
+                    {settings.festiveTheme === 'NAVIDAD' && '🎄🎅 ¡FELIZ NAVIDAD Y PRÓSPERO AÑO NUEVO! Aprovecha nuestras cestas y ofertas navideñas 🎁✨'}
+                    {settings.festiveTheme === 'CARNAVAL' && '🎭🎉 ¡FELIZ CARNAVAL! Disfruta nuestros precios especiales de temporada 🎊🥳'}
+                    {settings.festiveTheme === 'SEMANA_SANTA' && '🌴🐟 ¡TEMPORADA DE SEMANA SANTA! Todo fresco para tu hogar en familia ✨'}
+                    {settings.festiveTheme === 'MADRES_PADRES' && '💐👔 ¡MES ESPECIAL DE MAMÁ Y PAPÁ! Sorpréndelos con lo mejor 💝'}
+                    {settings.festiveTheme === 'HALLOWEEN' && '🎃👻 ¡ESPECIAL DE OCTUBRE / HALLOWEEN! Dulces y combos terroríficamente buenos 🍬'}
+                    {settings.festiveTheme === 'ANIVERSARIO' && '🎂🎈 ¡ESTAMOS DE ANIVERSARIO! Gracias por preferirnos, descuentos en toda la tienda 🎉'}
+                  </span>
                 </div>
               )}
 
@@ -2283,6 +2334,10 @@
                   setEmployees={setEmployees}
                   coupons={coupons}
                   setCoupons={setCoupons}
+                  fixedExpenses={fixedExpenses}
+                  setFixedExpenses={setFixedExpenses}
+                  fixedHistory={fixedHistory}
+                  setFixedHistory={setFixedHistory}
                   settings={settings}
                   setSettings={setSettings}
                   departments={departments}
@@ -3741,6 +3796,10 @@
           setEmployees,
           coupons,
           setCoupons,
+          fixedExpenses,
+          setFixedExpenses,
+          fixedHistory,
+          setFixedHistory,
           settings,
           setSettings,
           departments,
@@ -3784,10 +3843,12 @@
             { id: 'INVENTORY', label: 'Inventario, Pesos y Rubros', icon: Package },
             { id: 'CASH', label: 'Control de Caja y Turnos', icon: Wallet },
             { id: 'SUPPLIERS', label: 'Proveedores y Cuentas x Pagar', icon: Building2, badge: overduePayablesCount },
+            { id: 'FIXED_EXPENSES', label: 'Pagos Fijos y Obligaciones', icon: Calendar },
             { id: 'PAYROLL', label: 'Nómina y Personal', icon: Briefcase },
+            { id: 'ROTATION', label: 'Rotación de Productos', icon: RefreshCw },
             { id: 'STAFF', label: 'Usuarios, Roles y Cupones', icon: KeyRound },
-            { id: 'STATS', label: 'Ventas, Ganancias y Clientes', icon: BarChart3 },
-            { id: 'SETTINGS', label: 'Diseño, Colores, Tasa y PIN', icon: Palette },
+            { id: 'STATS', label: 'Ventas, Ganancias y Gráficas', icon: BarChart3 },
+            { id: 'SETTINGS', label: 'Diseño, Festividades y PIN', icon: Palette },
           ].filter((t) => allowedTabs.includes(t.id));
 
           return (
@@ -3913,7 +3974,33 @@
                   setStaffUsers={setStaffUsers}
                   coupons={coupons}
                   setCoupons={setCoupons}
+                  fixedExpenses={fixedExpenses}
+                  setFixedExpenses={setFixedExpenses}
+                  fixedHistory={fixedHistory}
+                  setFixedHistory={setFixedHistory}
                   showToast={showToast}
+                />
+              )}
+
+              {adminTab === 'FIXED_EXPENSES' && (
+                <FixedExpensesTab
+                  settings={settings}
+                  fixedExpenses={fixedExpenses}
+                  setFixedExpenses={setFixedExpenses}
+                  fixedHistory={fixedHistory}
+                  setFixedHistory={setFixedHistory}
+                  employees={employees}
+                  cashMovements={cashMovements}
+                  setCashMovements={setCashMovements}
+                  showToast={showToast}
+                />
+              )}
+
+              {adminTab === 'ROTATION' && (
+                <ProductRotationTab
+                  settings={settings}
+                  sales={sales}
+                  products={products}
                 />
               )}
 
@@ -3922,6 +4009,9 @@
                   settings={settings}
                   sales={sales}
                   customers={customers}
+                  cashMovements={cashMovements}
+                  employees={employees}
+                  fixedHistory={fixedHistory}
                 />
               )}
 
@@ -4658,6 +4748,45 @@
           updateCloud,
           showToast,
         }) {
+          const [showQuickClientModal, setShowQuickClientModal] = useState(false);
+          const [quickFirstName, setQuickFirstName] = useState('');
+          const [quickLastName, setQuickLastName] = useState('');
+          const [quickCi, setQuickCi] = useState('');
+          const [quickPhone, setQuickPhone] = useState('');
+
+          const handleSaveQuickClient = (e) => {
+            e.preventDefault();
+            if (!quickFirstName.trim() || !quickLastName.trim() || !quickCi.trim()) {
+              showToast('Nombre, Apellido y Cédula son obligatorios', 'warning');
+              return;
+            }
+            const cleanCi = quickCi.trim().toUpperCase();
+            const formattedCi = /^[VEJ]-/.test(cleanCi) ? cleanCi : `V-${cleanCi.replace(/\D/g, '')}`;
+            const exists = customers.some((c) => c.ci === formattedCi);
+            if (exists) {
+              setSelectedCi(formattedCi);
+              setShowQuickClientModal(false);
+              showToast('Cliente ya existía, seleccionado en caja');
+              return;
+            }
+            const newCust = {
+              ci: formattedCi,
+              firstName: quickFirstName.trim(),
+              lastName: quickLastName.trim(),
+              phone: quickPhone.trim() || 'N/A',
+              address: 'Tienda Física',
+              photo: null,
+              createdAt: new Date().toISOString(),
+            };
+            updateCloud({ customers: [newCust, ...customers] });
+            setSelectedCi(formattedCi);
+            setQuickFirstName('');
+            setQuickLastName('');
+            setQuickCi('');
+            setQuickPhone('');
+            setShowQuickClientModal(false);
+            showToast(`✅ Cliente ${newCust.firstName} ${newCust.lastName} (${formattedCi}) registrado`);
+          };
           const [posSearch, setPosSearch] = useState('');
           const [posCart, setPosCart] = useState([]);
           const [selectedCi, setSelectedCi] = useState('GENERAL');
@@ -4896,9 +5025,18 @@
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                     <div>
-                      <label className="block text-[11px] font-bold text-slate-600 mb-1">
-                        Cliente (Asociar CI)
-                      </label>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="block text-[11px] font-bold text-slate-600">
+                          Cliente (Asociar CI)
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => setShowQuickClientModal(true)}
+                          className="text-[10px] font-extrabold text-emerald-700 hover:underline cursor-pointer"
+                        >
+                          + Nuevo Cliente
+                        </button>
+                      </div>
                       <select
                         value={selectedCi}
                         onChange={(e) => setSelectedCi(e.target.value)}
@@ -5022,6 +5160,38 @@
                   </button>
                 </div>
               </div>
+
+                            {showQuickClientModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4">
+                  <div className="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl space-y-4">
+                    <div className="flex items-center justify-between">
+                      <h3 className="font-extrabold text-slate-900 text-base">Registrar Cliente en Caja</h3>
+                      <button onClick={() => setShowQuickClientModal(false)} className="text-slate-400 hover:text-slate-700 cursor-pointer">✕</button>
+                    </div>
+                    <form onSubmit={handleSaveQuickClient} className="space-y-3 text-xs">
+                      <div>
+                        <label className="block font-bold text-slate-700 mb-1">Nombre *</label>
+                        <input type="text" required value={quickFirstName} onChange={(e) => setQuickFirstName(e.target.value)} placeholder="Ej: Pedro" className="w-full px-3 py-2 border border-slate-300 rounded-xl" />
+                      </div>
+                      <div>
+                        <label className="block font-bold text-slate-700 mb-1">Apellido *</label>
+                        <input type="text" required value={quickLastName} onChange={(e) => setQuickLastName(e.target.value)} placeholder="Ej: González" className="w-full px-3 py-2 border border-slate-300 rounded-xl" />
+                      </div>
+                      <div>
+                        <label className="block font-bold text-slate-700 mb-1">Número de Cédula *</label>
+                        <input type="text" required value={quickCi} onChange={(e) => setQuickCi(e.target.value)} placeholder="Ej: V-19876543" className="w-full px-3 py-2 border border-slate-300 rounded-xl font-bold" />
+                      </div>
+                      <div>
+                        <label className="block font-bold text-slate-700 mb-1">Teléfono (Opcional)</label>
+                        <input type="tel" value={quickPhone} onChange={(e) => setQuickPhone(e.target.value)} placeholder="Ej: 0414-0000000" className="w-full px-3 py-2 border border-slate-300 rounded-xl" />
+                      </div>
+                      <button type="submit" className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-extrabold cursor-pointer">
+                        Guardar y Seleccionar Cliente
+                      </button>
+                    </form>
+                  </div>
+                </div>
+              )}
 
               {posMeasureProduct && (
                 <MeasureSelectorModal
@@ -6154,56 +6324,525 @@
           );
         }
 
-        function AnalyticsAndCustomersTab({ settings, sales, customers }) {
+        function ProductRotationTab({ settings, sales, products }) {
+          const [rotPeriod, setRotPeriod] = useState('ALL');
+          const [customStart, setCustomStart] = useState('');
+          const [customEnd, setCustomEnd] = useState('');
+
+          const rotationList = useMemo(() => {
+            const now = new Date();
+            const map = {};
+
+            products.forEach((p) => {
+              map[p.id] = {
+                id: p.id,
+                name: p.name,
+                department: p.department,
+                saleMode: getProductSaleMode(p),
+                stock: p.stock,
+                qtySold: 0,
+                revenueUsd: 0,
+                profitUsd: 0,
+                ordersCount: 0,
+              };
+            });
+
+            sales.forEach((s) => {
+              if ((s.status || 'COMPLETED') !== 'COMPLETED') return;
+              const d = new Date(s.date);
+              const diffDays = (now - d) / (1000 * 60 * 60 * 24);
+
+              if (rotPeriod === 'TODAY' && d.toDateString() !== now.toDateString()) return;
+              if (rotPeriod === 'WEEK' && diffDays > 7) return;
+              if (rotPeriod === 'MONTH' && diffDays > 30) return;
+              if (rotPeriod === 'YEAR' && diffDays > 365) return;
+              if (rotPeriod === 'CUSTOM') {
+                const dateStr = d.toISOString().slice(0, 10);
+                if (customStart && dateStr < customStart) return;
+                if (customEnd && dateStr > customEnd) return;
+              }
+
+              (s.items || []).forEach((item) => {
+                if (!map[item.productId]) {
+                  map[item.productId] = {
+                    id: item.productId,
+                    name: item.name,
+                    department: 'General',
+                    saleMode: item.saleMode || 'UNIT',
+                    stock: 0,
+                    qtySold: 0,
+                    revenueUsd: 0,
+                    profitUsd: 0,
+                    ordersCount: 0,
+                  };
+                }
+                map[item.productId].qtySold = round3(map[item.productId].qtySold + item.qty);
+                map[item.productId].revenueUsd = round3(map[item.productId].revenueUsd + item.qty * item.unitPrice);
+                map[item.productId].profitUsd = round3(
+                  map[item.productId].profitUsd + item.qty * (item.unitPrice - (item.costPrice || 0))
+                );
+                map[item.productId].ordersCount += 1;
+              });
+            });
+
+            return Object.values(map).sort((a, b) => b.qtySold - a.qtySold);
+          }, [sales, products, rotPeriod, customStart, customEnd]);
+
+          const maxSold = Math.max(1, ...rotationList.map((r) => r.qtySold));
+
+          return (
+            <div className="space-y-6">
+              <div className="bg-white p-5 rounded-3xl border border-slate-200 space-y-4">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <h2 className="text-lg font-extrabold text-slate-900">
+                      Productos con Mayor Rotatividad
+                    </h2>
+                    <p className="text-xs text-slate-500">
+                      Consulta los artículos de mayor movimiento diario, semanal, mensual, anual o por rango de fechas
+                    </p>
+                  </div>
+
+                  <div className="flex flex-wrap gap-1.5 bg-slate-100 p-1 rounded-xl">
+                    {[
+                      { id: 'TODAY', label: 'Diario' },
+                      { id: 'WEEK', label: 'Semanal' },
+                      { id: 'MONTH', label: 'Mensual' },
+                      { id: 'YEAR', label: 'Anual' },
+                      { id: 'CUSTOM', label: 'Fechas Específicas' },
+                      { id: 'ALL', label: 'Todo' },
+                    ].map((p) => (
+                      <button
+                        key={p.id}
+                        type="button"
+                        onClick={() => setRotPeriod(p.id)}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-extrabold transition cursor-pointer ${
+                          rotPeriod === p.id
+                            ? 'bg-emerald-600 text-white shadow-xs'
+                            : 'text-slate-600 hover:text-slate-900'
+                        }`}
+                      >
+                        {p.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {rotPeriod === 'CUSTOM' && (
+                  <div className="flex flex-wrap items-center gap-3 p-3 bg-slate-50 rounded-2xl border border-slate-200 text-xs">
+                    <div>
+                      <label className="font-bold text-slate-600 block mb-1">Desde:</label>
+                      <input type="date" value={customStart} onChange={(e) => setCustomStart(e.target.value)} className="px-3 py-1.5 border border-slate-300 rounded-xl bg-white" />
+                    </div>
+                    <div>
+                      <label className="font-bold text-slate-600 block mb-1">Hasta:</label>
+                      <input type="date" value={customEnd} onChange={(e) => setCustomEnd(e.target.value)} className="px-3 py-1.5 border border-slate-300 rounded-xl bg-white" />
+                    </div>
+                  </div>
+                )}
+
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="border-b border-slate-200 text-[11px] font-extrabold uppercase text-slate-500 bg-slate-50">
+                        <th className="py-3 px-3">Ranking / Producto</th>
+                        <th className="py-3 px-3">Departamento</th>
+                        <th className="py-3 px-3">Cantidad Vendida</th>
+                        <th className="py-3 px-3">Nivel de Rotación</th>
+                        <th className="py-3 px-3 text-right">Ingresos ($)</th>
+                        <th className="py-3 px-3 text-right">Ganancia ($)</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 text-xs">
+                      {rotationList.map((item, idx) => (
+                        <tr key={item.id} className="hover:bg-slate-50">
+                          <td className="py-3 px-3 font-bold text-slate-900">
+                            <span className={`inline-block w-6 text-center mr-1.5 font-black ${idx < 3 && item.qtySold > 0 ? 'text-amber-600' : 'text-slate-400'}`}>
+                              #{idx + 1}
+                            </span>
+                            {item.name}
+                          </td>
+                          <td className="py-3 px-3 text-slate-500">{item.department}</td>
+                          <td className="py-3 px-3 font-extrabold text-emerald-700">
+                            {formatMeasureQty(item.qtySold, item.saleMode)}
+                          </td>
+                          <td className="py-3 px-3 w-48">
+                            <div className="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden">
+                              <div
+                                className="h-full bg-emerald-600 rounded-full"
+                                style={{ width: `${Math.round((item.qtySold / maxSold) * 100)}%` }}
+                              />
+                            </div>
+                          </td>
+                          <td className="py-3 px-3 text-right font-bold">{formatUsd(item.revenueUsd)}</td>
+                          <td className="py-3 px-3 text-right font-extrabold text-emerald-700">{formatUsd(item.profitUsd)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          );
+        }
+
+        function FixedExpensesTab({
+          settings,
+          fixedExpenses,
+          setFixedExpenses,
+          fixedHistory,
+          setFixedHistory,
+          employees,
+          cashMovements,
+          setCashMovements,
+          showToast,
+        }) {
+          const [expName, setExpName] = useState('');
+          const [expCategory, setExpCategory] = useState('Luz');
+          const [expMonthlyUsd, setExpMonthlyUsd] = useState('');
+          const [expDueDay, setExpDueDay] = useState('15');
+          const [abonoInputs, setAbonoInputs] = useState({});
+
+          const currentMonthKey = new Date().toISOString().slice(0, 7);
+
+          const totalPayrollMonthlyUsd = useMemo(() => {
+            return employees
+              .filter((e) => e.active !== false)
+              .reduce((acc, e) => {
+                const mult = e.payFrequency === 'WEEKLY' ? 4 : e.payFrequency === 'BIWEEKLY' ? 2 : 1;
+                return acc + e.baseSalaryUsd * mult;
+              }, 0);
+          }, [employees]);
+
+          const accountingFeeUsd = useMemo(() => {
+            return fixedExpenses
+              .filter((f) => f.category === 'Contable')
+              .reduce((acc, f) => acc + f.monthlyAmountUsd, 0);
+          }, [fixedExpenses]);
+
+          const totals = useMemo(() => {
+            const totalFixed = fixedExpenses.reduce((acc, f) => acc + f.monthlyAmountUsd, 0);
+            const totalPaid = fixedExpenses.reduce((acc, f) => acc + Math.min(f.monthlyAmountUsd, f.paidThisMonthUsd || 0), 0);
+            const totalRemaining = Math.max(0, round3(totalFixed - totalPaid));
+            return { totalFixed, totalPaid, totalRemaining };
+          }, [fixedExpenses]);
+
+          const handleCreateFixedExpense = (e) => {
+            e.preventDefault();
+            if (!expName.trim() || !expMonthlyUsd) return;
+            const newExp = {
+              id: `fix-${Date.now()}`,
+              name: expName.trim(),
+              category: expCategory,
+              monthlyAmountUsd: Number(expMonthlyUsd),
+              paidThisMonthUsd: 0,
+              dueDay: Number(expDueDay) || 15,
+            };
+            setFixedExpenses([...fixedExpenses, newExp]);
+            setExpName('');
+            setExpMonthlyUsd('');
+            showToast('Pago fijo mensual agregado');
+          };
+
+          const handlePayFixed = (item, customAmt = null) => {
+            const remaining = Math.max(0, round3(item.monthlyAmountUsd - (item.paidThisMonthUsd || 0)));
+            const parsedCustom = customAmt !== null ? Number(String(customAmt).replace(',', '.')) : null;
+            if (customAmt !== null && (!parsedCustom || parsedCustom <= 0)) {
+              showToast('Ingresa un monto de abono válido mayor a 0', 'warning');
+              return;
+            }
+            const payNow = parsedCustom !== null ? Math.min(remaining, round3(parsedCustom)) : remaining;
+            if (!payNow || payNow <= 0) return;
+
+            const nextPaid = round3((item.paidThisMonthUsd || 0) + payNow);
+            const newRemaining = Math.max(0, round3(item.monthlyAmountUsd - nextPaid));
+
+            setFixedExpenses(
+              fixedExpenses.map((f) =>
+                f.id === item.id ? { ...f, paidThisMonthUsd: nextPaid } : f
+              )
+            );
+
+            const historyEntry = {
+              id: `fhist-${Date.now()}`,
+              date: new Date().toISOString(),
+              expenseName: item.name,
+              category: item.category,
+              amountUsd: payNow,
+              remainingUsd: newRemaining,
+              monthKey: currentMonthKey,
+              notes: newRemaining === 0 ? 'Pago completo del mes' : 'Abono parcial mensual',
+            };
+            setFixedHistory([historyEntry, ...fixedHistory]);
+
+            setCashMovements([
+              {
+                id: `MOV-${Date.now()}`,
+                date: new Date().toISOString(),
+                type: 'OUT',
+                category: `Pago Fijo: ${item.category}`,
+                description: `${item.name} (${newRemaining === 0 ? 'Liquidado' : 'Abono'})`,
+                amountUsd: payNow,
+                currencyUsed: 'USD',
+              },
+              ...cashMovements,
+            ]);
+
+            setAbonoInputs((prev) => ({ ...prev, [item.id]: '' }));
+            showToast(`✅ Pago de ${formatUsd(payNow)} registrado en ${item.name}. Resta: ${formatUsd(newRemaining)}`);
+          };
+
+          const handleResetNewMonth = () => {
+            setFixedExpenses(fixedExpenses.map((f) => ({ ...f, paidThisMonthUsd: 0 })));
+            showToast('🔄 Nuevo mes iniciado: los saldos abonados se reiniciaron manteniendo el historial');
+          };
+
+          return (
+            <div className="space-y-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+                <div className="bg-white p-4 rounded-3xl border border-slate-200">
+                  <span className="text-[11px] font-bold text-slate-500">TOTAL PAGOS FIJOS MES</span>
+                  <p className="text-xl font-black text-slate-900 mt-1">{formatUsd(totals.totalFixed)}</p>
+                </div>
+                <div className="bg-white p-4 rounded-3xl border border-slate-200">
+                  <span className="text-[11px] font-bold text-slate-500">ABONADO ESTE MES</span>
+                  <p className="text-xl font-black text-emerald-600 mt-1">{formatUsd(totals.totalPaid)}</p>
+                </div>
+                <div className="bg-white p-4 rounded-3xl border border-slate-200">
+                  <span className="text-[11px] font-bold text-slate-500">RESTANTE POR PAGAR</span>
+                  <p className="text-xl font-black text-red-600 mt-1">{formatUsd(totals.totalRemaining)}</p>
+                </div>
+                <div className="bg-slate-900 text-white p-4 rounded-3xl">
+                  <span className="text-[11px] font-bold text-amber-400">NÓMINA MENSUAL EST.</span>
+                  <p className="text-xl font-black mt-1">{formatUsd(totalPayrollMonthlyUsd)}</p>
+                </div>
+                <div className="bg-slate-900 text-white p-4 rounded-3xl">
+                  <span className="text-[11px] font-bold text-sky-400">HONORARIOS CONTABLE</span>
+                  <p className="text-xl font-black mt-1">{formatUsd(accountingFeeUsd)}</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                <form onSubmit={handleCreateFixedExpense} className="lg:col-span-4 bg-white p-5 rounded-3xl border border-slate-200 space-y-3 h-fit">
+                  <h3 className="font-extrabold text-slate-900 text-sm">Agregar Obligación / Pago Fijo Mensual</h3>
+                  <select value={expCategory} onChange={(e) => setExpCategory(e.target.value)} className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs font-bold">
+                    <option value="Luz">💡 Luz / Electricidad</option>
+                    <option value="Agua">💧 Agua</option>
+                    <option value="Internet">🌐 Internet / Telefonía</option>
+                    <option value="Alquiler">🏢 Alquiler de Local</option>
+                    <option value="Impuestos Alcaldía">🏛️ Impuestos de Alcaldía</option>
+                    <option value="Impuestos SENIAT">🧾 Impuestos de SENIAT</option>
+                    <option value="Otros Impuestos">📑 Otro Tipo de Impuestos</option>
+                    <option value="Contable">📊 Contable / Contador</option>
+                    <option value="Otros">📌 Otro Gasto Fijo</option>
+                  </select>
+                  <input type="text" placeholder="Descripción (Ej: Impuesto Trimestral Alcaldía)" value={expName} onChange={(e) => setExpName(e.target.value)} className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs" required />
+                  <div className="grid grid-cols-2 gap-2">
+                    <input type="number" step="0.01" placeholder="Monto Mensual ($)" value={expMonthlyUsd} onChange={(e) => setExpMonthlyUsd(e.target.value)} className="px-3 py-2 border border-slate-300 rounded-xl text-xs font-bold" required />
+                    <input type="number" min="1" max="31" placeholder="Día corte (1-31)" value={expDueDay} onChange={(e) => setExpDueDay(e.target.value)} className="px-3 py-2 border border-slate-300 rounded-xl text-xs" />
+                  </div>
+                  <button type="submit" className="w-full py-2.5 bg-slate-900 text-white rounded-xl text-xs font-extrabold cursor-pointer">
+                    + Guardar Pago Fijo
+                  </button>
+                </form>
+
+                <div className="lg:col-span-8 bg-white p-5 rounded-3xl border border-slate-200 space-y-4">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <h3 className="font-extrabold text-slate-900">Control Mensual de Servicios, Impuestos y Contable</h3>
+                    <button
+                      type="button"
+                      onClick={handleResetNewMonth}
+                      className="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold cursor-pointer"
+                    >
+                      🔄 Iniciar Nuevo Mes
+                    </button>
+                  </div>
+
+                  <div className="space-y-2.5">
+                    {fixedExpenses.map((item) => {
+                      const paid = Number(item.paidThisMonthUsd || 0);
+                      const remaining = Math.max(0, round3(item.monthlyAmountUsd - paid));
+                      const isDone = remaining <= 0;
+                      const isPartial = !isDone && paid > 0;
+
+                      return (
+                        <div key={item.id} className={`p-3.5 rounded-2xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${isDone ? 'bg-emerald-50/50 border-emerald-200' : isPartial ? 'bg-amber-50/40 border-amber-300' : 'bg-slate-50 border-slate-200'}`}>
+                          <div>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="font-extrabold text-slate-900 text-sm">{item.name}</span>
+                              <span className="px-2 py-0.5 rounded-full bg-slate-200 text-slate-700 text-[10px] font-bold">{item.category}</span>
+                              {isDone ? (
+                                <span className="px-2.5 py-0.5 rounded-full bg-emerald-600 text-white text-[10px] font-extrabold">✓ LISTO / PAGADO</span>
+                              ) : isPartial ? (
+                                <span className="px-2.5 py-0.5 rounded-full bg-amber-500 text-white text-[10px] font-extrabold">⏳ ABONADO (FALTA {formatUsd(remaining)})</span>
+                              ) : (
+                                <span className="px-2.5 py-0.5 rounded-full bg-slate-200 text-slate-700 text-[10px] font-extrabold">PENDIENTE</span>
+                              )}
+                            </div>
+                            <div className="flex flex-wrap gap-4 text-xs mt-1">
+                              <span>Mensual: <strong>{formatUsd(item.monthlyAmountUsd)}</strong></span>
+                              <span className="text-emerald-700">Abonado: <strong>{formatUsd(paid)}</strong></span>
+                              <span className="text-red-600">Falta por Pagar: <strong>{formatUsd(remaining)}</strong></span>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-1.5">
+                            {!isDone && (
+                              <>
+                                <input
+                                  type="number"
+                                  step="0.01"
+                                  placeholder="Abono $"
+                                  value={abonoInputs[item.id] || ''}
+                                  onChange={(e) => setAbonoInputs({ ...abonoInputs, [item.id]: e.target.value })}
+                                  className="w-20 px-2 py-1.5 border border-slate-300 rounded-xl text-xs font-bold bg-white"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => handlePayFixed(item, abonoInputs[item.id])}
+                                  className="px-2.5 py-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-xs font-extrabold cursor-pointer"
+                                >
+                                  Abonar
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handlePayFixed(item, null)}
+                                  className="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-extrabold cursor-pointer"
+                                >
+                                  Pagar Todo
+                                </button>
+                              </>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => setFixedExpenses(fixedExpenses.filter((f) => f.id !== item.id))}
+                              className="p-1.5 bg-red-50 text-red-600 rounded-xl cursor-pointer"
+                              title="Eliminar"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+
+              {/* Historial Permanente Detallado */}
+              <div className="bg-white p-5 rounded-3xl border border-slate-200 space-y-3">
+                <h3 className="font-extrabold text-slate-900">Historial Detallado de Pagos Fijos, Impuestos y Abonos</h3>
+                <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
+                  {fixedHistory.map((h) => (
+                    <div key={h.id} className="p-3 rounded-2xl bg-slate-50 border border-slate-200/70 flex items-center justify-between text-xs">
+                      <div>
+                        <p className="font-extrabold text-slate-900">{h.expenseName} <span className="text-slate-500 font-normal">({h.category})</span></p>
+                        <p className="text-[11px] text-slate-500">📅 {new Date(h.date).toLocaleString('es-VE')} • {h.notes}</p>
+                      </div>
+                      <div className="text-right">
+                        <span className="font-black text-emerald-700 block">-{formatUsd(h.amountUsd)}</span>
+                        {h.remainingUsd !== undefined && (
+                          <span className="text-[10px] text-slate-500">Restante: {formatUsd(h.remainingUsd)}</span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          );
+        }
+
+        function AnalyticsAndCustomersTab({ settings, sales, customers, cashMovements = [], employees = [], fixedHistory = [] }) {
           const [period, setPeriod] = useState('ALL');
+          const [startDate, setStartDate] = useState('');
+          const [endDate, setEndDate] = useState('');
+
+          const isDateInPeriod = (dateIso) => {
+            const now = new Date();
+            const d = new Date(dateIso);
+            const diffDays = (now - d) / (1000 * 60 * 60 * 24);
+            if (period === 'TODAY') return d.toDateString() === now.toDateString();
+            if (period === 'WEEK') return diffDays <= 7;
+            if (period === 'MONTH') return diffDays <= 30;
+            if (period === 'YEAR') return diffDays <= 365;
+            if (period === 'CUSTOM') {
+              const str = d.toISOString().slice(0, 10);
+              if (startDate && str < startDate) return false;
+              if (endDate && str > endDate) return false;
+              return true;
+            }
+            return true;
+          };
 
           const filteredSales = useMemo(() => {
-            const now = new Date();
             return sales.filter((s) => {
-              // Solo contar ventas finalizadas (excluir anuladas y pendientes no cobradas)
               const st = s.status || 'COMPLETED';
               if (st !== 'COMPLETED') return false;
-
-              const d = new Date(s.date);
-              const diffMs = now - d;
-              const diffDays = diffMs / (1000 * 60 * 60 * 24);
-
-              if (period === 'TODAY') {
-                return d.toDateString() === now.toDateString();
-              }
-              if (period === 'WEEK') return diffDays <= 7;
-              if (period === 'MONTH') return diffDays <= 30;
-              if (period === 'YEAR') return diffDays <= 365;
-              return true;
+              return isDateInPeriod(s.date);
             });
-          }, [sales, period]);
+          }, [sales, period, startDate, endDate]);
+
+          const filteredMovements = useMemo(() => {
+            return cashMovements.filter((m) => isDateInPeriod(m.date));
+          }, [cashMovements, period, startDate, endDate]);
 
           const kpis = useMemo(() => {
             const totalSalesUsd = filteredSales.reduce((acc, s) => acc + s.totalUsd, 0);
             const totalCostUsd = filteredSales.reduce((acc, s) => acc + (s.totalCostUsd || 0), 0);
-            const netProfitUsd = totalSalesUsd - totalCostUsd;
-            const marginPercent = totalSalesUsd > 0 ? (netProfitUsd / totalSalesUsd) * 100 : 0;
-            const onlineCount = filteredSales.filter((s) => s.channel === 'ONLINE').length;
-            const posCount = filteredSales.filter((s) => s.channel === 'POS').length;
+            const grossProfitUsd = totalSalesUsd - totalCostUsd;
+
+            const salariesPaidUsd = filteredMovements
+              .filter((m) => m.type === 'OUT' && (m.category || '').includes('Nómina'))
+              .reduce((acc, m) => acc + m.amountUsd, 0);
+
+            const ownerWithdrawalsUsd = filteredMovements
+              .filter((m) => m.type === 'OUT' && (m.category || '').includes('Retiro'))
+              .reduce((acc, m) => acc + m.amountUsd, 0);
+
+            const supplierAndFixedPaymentsUsd = filteredMovements
+              .filter(
+                (m) =>
+                  m.type === 'OUT' &&
+                  !(m.category || '').includes('Nómina') &&
+                  !(m.category || '').includes('Retiro')
+              )
+              .reduce((acc, m) => acc + m.amountUsd, 0);
+
+            const totalExpensesUsd = round3(salariesPaidUsd + supplierAndFixedPaymentsUsd);
+            const netProfitAfterExpensesUsd = round3(grossProfitUsd - totalExpensesUsd);
+            const marginPercent = totalSalesUsd > 0 ? (grossProfitUsd / totalSalesUsd) * 100 : 0;
 
             return {
               totalSalesUsd,
               totalCostUsd,
-              netProfitUsd,
+              grossProfitUsd,
+              salariesPaidUsd,
+              ownerWithdrawalsUsd,
+              supplierAndFixedPaymentsUsd,
+              totalExpensesUsd,
+              netProfitAfterExpensesUsd,
               marginPercent,
-              onlineCount,
-              posCount,
+              onlineCount: filteredSales.filter((s) => s.channel === 'ONLINE').length,
+              posCount: filteredSales.filter((s) => s.channel === 'POS').length,
               totalOrders: filteredSales.length,
             };
-          }, [filteredSales]);
+          }, [filteredSales, filteredMovements]);
+
+          const chartBars = [
+            { label: 'Ventas Totales', val: kpis.totalSalesUsd, color: 'bg-emerald-600' },
+            { label: 'Ganancia Bruta', val: kpis.grossProfitUsd, color: 'bg-amber-500' },
+            { label: 'Pagos / Gastos', val: kpis.supplierAndFixedPaymentsUsd, color: 'bg-rose-500' },
+            { label: 'Sueldos / Nómina', val: kpis.salariesPaidUsd, color: 'bg-sky-600' },
+            { label: 'Retiros de Caja', val: kpis.ownerWithdrawalsUsd, color: 'bg-purple-600' },
+          ];
+          const maxChartVal = Math.max(1, ...chartBars.map((b) => b.val));
 
           const customerRanking = useMemo(() => {
             const map = {};
-
             sales.forEach((s) => {
               if (!s.customerCi || s.customerCi === 'CLIENTE-GENERAL') return;
               if ((s.status || 'COMPLETED') !== 'COMPLETED') return;
-
               if (!map[s.customerCi]) {
                 const profile = customers.find((c) => c.ci === s.customerCi);
                 map[s.customerCi] = {
@@ -6223,7 +6862,6 @@
                 map[s.customerCi].lastPurchase = s.date;
               }
             });
-
             customers.forEach((c) => {
               if (!map[c.ci]) {
                 map[c.ci] = {
@@ -6238,93 +6876,151 @@
                 };
               }
             });
-
             return Object.values(map).sort((a, b) => b.totalSpentUsd - a.totalSpentUsd);
           }, [sales, customers]);
 
           return (
             <div className="space-y-6">
-              <div className="bg-white p-4 rounded-3xl border border-slate-200 flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <h2 className="text-lg font-extrabold text-slate-900">
-                    Resumen Financiero y Ganancias (Ventas Finalizadas)
-                  </h2>
-                  <p className="text-xs text-slate-500">
-                    Las órdenes anuladas o pendientes no alteran tu ganancia real hasta que se finalicen
-                  </p>
+              <div className="bg-white p-5 rounded-3xl border border-slate-200 space-y-4">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <h2 className="text-lg font-extrabold text-slate-900">
+                      Resumen Financiero Integral, Gráficas y Auditoría por Fecha
+                    </h2>
+                    <p className="text-xs text-slate-500">
+                      Filtra ventas, gastos, sueldos, pagos, ganancias y retiros de caja por día, semana, mes, año o fechas específicas
+                    </p>
+                  </div>
+
+                  <div className="flex flex-wrap gap-1.5 bg-slate-100 p-1 rounded-xl">
+                    {[
+                      { id: 'TODAY', label: 'Día (Hoy)' },
+                      { id: 'WEEK', label: 'Semanal' },
+                      { id: 'MONTH', label: 'Mensual' },
+                      { id: 'YEAR', label: 'Anual' },
+                      { id: 'CUSTOM', label: 'Fechas Específicas' },
+                      { id: 'ALL', label: 'Todo' },
+                    ].map((p) => (
+                      <button
+                        key={p.id}
+                        onClick={() => setPeriod(p.id)}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-extrabold transition cursor-pointer ${
+                          period === p.id
+                            ? 'bg-emerald-600 text-white shadow-xs'
+                            : 'text-slate-600 hover:text-slate-900'
+                        }`}
+                      >
+                        {p.label}
+                      </button>
+                    ))}
+                  </div>
                 </div>
 
-                <div className="flex flex-wrap gap-1.5 bg-slate-100 p-1 rounded-xl">
-                  {[
-                    { id: 'TODAY', label: 'Diario (Hoy)' },
-                    { id: 'WEEK', label: 'Semanal' },
-                    { id: 'MONTH', label: 'Mensual' },
-                    { id: 'YEAR', label: 'Anual' },
-                    { id: 'ALL', label: 'Todo' },
-                  ].map((p) => (
-                    <button
-                      key={p.id}
-                      onClick={() => setPeriod(p.id)}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-extrabold transition cursor-pointer ${
-                        period === p.id
-                          ? 'bg-emerald-600 text-white shadow-xs'
-                          : 'text-slate-600 hover:text-slate-900'
-                      }`}
-                    >
-                      {p.label}
-                    </button>
-                  ))}
-                </div>
+                {period === 'CUSTOM' && (
+                  <div className="flex flex-wrap items-center gap-3 p-3.5 bg-slate-50 rounded-2xl border border-slate-200 text-xs">
+                    <div>
+                      <label className="font-bold text-slate-700 block mb-1">Fecha Inicial:</label>
+                      <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="px-3 py-2 border border-slate-300 rounded-xl bg-white font-semibold" />
+                    </div>
+                    <div>
+                      <label className="font-bold text-slate-700 block mb-1">Fecha Final:</label>
+                      <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="px-3 py-2 border border-slate-300 rounded-xl bg-white font-semibold" />
+                    </div>
+                  </div>
+                )}
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {/* Tarjetas de Métricas Completas */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-xs">
-                  <span className="text-xs font-bold text-slate-500">VENTAS COBRADAS</span>
-                  <p className="text-2xl font-black text-slate-900 mt-1">
-                    {formatUsd(kpis.totalSalesUsd)}
-                  </p>
-                  <p className="text-xs font-semibold text-emerald-700 mt-0.5">
-                    {formatBs(kpis.totalSalesUsd * settings.exchangeRate)}
-                  </p>
-                </div>
-
-                <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-xs">
-                  <span className="text-xs font-bold text-slate-500">COSTO DE MERCANCÍA</span>
-                  <p className="text-2xl font-black text-slate-700 mt-1">
-                    {formatUsd(kpis.totalCostUsd)}
-                  </p>
-                  <p className="text-xs text-slate-400 mt-0.5">Inversión en productos vendidos</p>
+                  <span className="text-xs font-bold text-slate-500">TOTAL VENTAS COBRADAS</span>
+                  <p className="text-2xl font-black text-slate-900 mt-1">{formatUsd(kpis.totalSalesUsd)}</p>
+                  <p className="text-xs font-semibold text-emerald-700 mt-0.5">{formatBs(kpis.totalSalesUsd * settings.exchangeRate)}</p>
                 </div>
 
                 <div className="bg-gradient-to-br from-emerald-600 to-emerald-800 text-white p-5 rounded-3xl shadow-md">
                   <span className="text-xs font-bold text-emerald-100 flex items-center justify-between">
-                    <span>GANANCIA NETA</span>
-                    <span className="bg-white/20 px-2 py-0.5 rounded-full text-[10px]">
-                      Margen {kpis.marginPercent.toFixed(1)}%
-                    </span>
+                    <span>GANANCIA NETA PRODUCTOS</span>
+                    <span className="bg-white/20 px-2 py-0.5 rounded-full text-[10px]">Margen {kpis.marginPercent.toFixed(1)}%</span>
                   </span>
-                  <p className="text-2xl font-black text-amber-300 mt-1">
-                    {formatUsd(kpis.netProfitUsd)}
-                  </p>
-                  <p className="text-xs text-emerald-100 mt-0.5">
-                    {formatBs(kpis.netProfitUsd * settings.exchangeRate)}
-                  </p>
+                  <p className="text-2xl font-black text-amber-300 mt-1">{formatUsd(kpis.grossProfitUsd)}</p>
+                  <p className="text-xs text-emerald-100 mt-0.5">Utilidad Real post-gastos: {formatUsd(kpis.netProfitAfterExpensesUsd)}</p>
                 </div>
 
                 <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-xs">
-                  <span className="text-xs font-bold text-slate-500">VENTAS COMPLETADAS</span>
+                  <span className="text-xs font-bold text-slate-500">PAGOS Y GASTOS OPERATIVOS</span>
+                  <p className="text-2xl font-black text-rose-600 mt-1">{formatUsd(kpis.supplierAndFixedPaymentsUsd)}</p>
+                  <p className="text-xs text-slate-400 mt-0.5">Proveedores, servicios e impuestos</p>
+                </div>
+
+                <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-xs">
+                  <span className="text-xs font-bold text-slate-500">SUELDOS Y NÓMINA PAGADA</span>
+                  <p className="text-2xl font-black text-sky-700 mt-1">{formatUsd(kpis.salariesPaidUsd)}</p>
+                  <p className="text-xs text-slate-400 mt-0.5">Pagos al personal en el período</p>
+                </div>
+
+                <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-xs">
+                  <span className="text-xs font-bold text-slate-500">RETIROS DE CAJA</span>
+                  <p className="text-2xl font-black text-purple-700 mt-1">{formatUsd(kpis.ownerWithdrawalsUsd)}</p>
+                  <p className="text-xs text-slate-400 mt-0.5">Retiros registrados en caja</p>
+                </div>
+
+                <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-xs">
+                  <span className="text-xs font-bold text-slate-500">ÓRDENES COMPLETADAS</span>
                   <p className="text-2xl font-black text-slate-900 mt-1">{kpis.totalOrders}</p>
                   <div className="flex items-center gap-2 mt-1 text-[11px] font-semibold">
-                    <span className="text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded">
-                      Web: {kpis.onlineCount}
-                    </span>
-                    <span className="text-slate-700 bg-slate-100 px-2 py-0.5 rounded">
-                      Caja: {kpis.posCount}
-                    </span>
+                    <span className="text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded">Web: {kpis.onlineCount}</span>
+                    <span className="text-slate-700 bg-slate-100 px-2 py-0.5 rounded">Caja: {kpis.posCount}</span>
                   </div>
                 </div>
               </div>
 
+              {/* Gráfica Comparativa Visual */}
+              <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-xs space-y-4">
+                <h3 className="font-extrabold text-slate-900 flex items-center gap-2">
+                  <BarChart3 className="w-5 h-5 text-emerald-600" />
+                  Gráfica Financiera Comparativa del Período
+                </h3>
+                <div className="space-y-3">
+                  {chartBars.map((b) => (
+                    <div key={b.label} className="space-y-1">
+                      <div className="flex justify-between text-xs font-extrabold">
+                        <span className="text-slate-700">{b.label}</span>
+                        <span className="text-slate-900">{formatUsd(b.val)}</span>
+                      </div>
+                      <div className="w-full h-4 bg-slate-100 rounded-full overflow-hidden">
+                        <div
+                          className={`h-full ${b.color} rounded-full transition-all duration-500`}
+                          style={{ width: `${Math.max(2, Math.round((b.val / maxChartVal) * 100))}%` }}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Historial Detallado de Movimientos del Período */}
+              <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-xs space-y-3">
+                <h3 className="font-extrabold text-slate-900">Historial Detallado de Operaciones Financieras ({filteredMovements.length})</h3>
+                <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
+                  {filteredMovements.map((m) => (
+                    <div key={m.id} className="p-3 rounded-2xl bg-slate-50 border border-slate-200/70 flex items-center justify-between text-xs">
+                      <div>
+                        <span className={`px-2 py-0.5 rounded text-[10px] font-extrabold mr-2 ${m.type === 'IN' ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-700'}`}>
+                          {m.type === 'IN' ? 'INGRESO' : 'EGRESO'}
+                        </span>
+                        <strong className="text-slate-900">{m.category}</strong>
+                        <p className="text-slate-500 mt-0.5">{m.description} • {new Date(m.date).toLocaleString('es-VE')}</p>
+                      </div>
+                      <span className={`font-black text-sm ${m.type === 'IN' ? 'text-emerald-600' : 'text-red-600'}`}>
+                        {m.type === 'IN' ? '+' : '-'}{formatUsd(m.amountUsd)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Ranking de Clientes */}
               <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-xs space-y-4">
                 <div className="flex items-center justify-between">
                   <div>
@@ -6332,9 +7028,7 @@
                       <User className="w-5 h-5 text-emerald-600" />
                       Estadísticas de Clientes por Cédula (CI)
                     </h3>
-                    <p className="text-xs text-slate-500">
-                      Historial acumulado y ranking de mejores compradores registrados
-                    </p>
+                    <p className="text-xs text-slate-500">Historial acumulado y ranking de mejores compradores registrados</p>
                   </div>
                   <span className="text-xs font-bold bg-slate-100 px-3 py-1 rounded-full text-slate-700">
                     {customerRanking.length} clientes registrados
@@ -6358,11 +7052,7 @@
                           <td className="py-3 px-3">
                             <div className="flex items-center gap-2.5">
                               {c.photo ? (
-                                <img
-                                  src={c.photo}
-                                  alt={c.name}
-                                  className="w-8 h-8 rounded-full object-cover border border-emerald-500"
-                                />
+                                <img src={c.photo} alt={c.name} className="w-8 h-8 rounded-full object-cover border border-emerald-500" />
                               ) : (
                                 <div className="w-8 h-8 rounded-full bg-emerald-100 text-emerald-800 flex items-center justify-center font-extrabold">
                                   {c.name[0]}
@@ -6372,15 +7062,11 @@
                                 <p className="font-bold text-slate-900 flex items-center gap-1.5">
                                   {c.name}
                                   {idx === 0 && c.totalSpentUsd > 0 && (
-                                    <span className="text-[10px] bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded font-extrabold">
-                                      TOP #1
-                                    </span>
+                                    <span className="text-[10px] bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded font-extrabold">TOP #1</span>
                                   )}
                                 </p>
                                 <span className="text-[10px] text-slate-400">
-                                  {c.lastPurchase
-                                    ? `Última compra: ${new Date(c.lastPurchase).toLocaleDateString()}`
-                                    : 'Sin compras aún'}
+                                  {c.lastPurchase ? `Última compra: ${new Date(c.lastPurchase).toLocaleDateString()}` : 'Sin compras aún'}
                                 </span>
                               </div>
                             </div>
@@ -6391,17 +7077,11 @@
                             <p className="text-[11px] text-slate-400 truncate max-w-xs">{c.address}</p>
                           </td>
                           <td className="py-3 px-3 text-center">
-                            <span className="px-2.5 py-1 rounded-full bg-slate-100 font-extrabold text-slate-800">
-                              {c.ordersCount}
-                            </span>
+                            <span className="px-2.5 py-1 rounded-full bg-slate-100 font-extrabold text-slate-800">{c.ordersCount}</span>
                           </td>
                           <td className="py-3 px-3 text-right">
-                            <span className="font-black text-emerald-700 text-sm block">
-                              {formatUsd(c.totalSpentUsd)}
-                            </span>
-                            <span className="text-[10px] text-slate-400">
-                              {formatBs(c.totalSpentUsd * settings.exchangeRate)}
-                            </span>
+                            <span className="font-black text-emerald-700 text-sm block">{formatUsd(c.totalSpentUsd)}</span>
+                            <span className="text-[10px] text-slate-400">{formatBs(c.totalSpentUsd * settings.exchangeRate)}</span>
                           </td>
                         </tr>
                       ))}
@@ -6672,6 +7352,29 @@
                   </div>
                 </div>
 
+                                <div className="p-4 rounded-2xl bg-amber-50/70 border border-amber-200 space-y-3">
+                  <h3 className="text-xs font-extrabold uppercase tracking-wider text-amber-900 flex items-center gap-1.5">
+                    <Sparkles className="w-4 h-4 text-amber-600" />
+                    Decoración Festiva para el Panel del Cliente
+                  </h3>
+                  <p className="text-xs text-slate-600">
+                    Activa un cintillo decorativo especial en la tienda online según la época festiva del año:
+                  </p>
+                  <select
+                    value={form.festiveTheme || 'NONE'}
+                    onChange={(e) => setForm({ ...form, festiveTheme: e.target.value })}
+                    className="w-full px-3.5 py-2.5 border border-amber-300 rounded-xl bg-white text-xs font-extrabold text-slate-800"
+                  >
+                    <option value="NONE">Sin Decoración Festiva (Diseño Normal)</option>
+                    <option value="NAVIDAD">🎄 Navidad y Año Nuevo</option>
+                    <option value="CARNAVAL">🎭 Carnavales</option>
+                    <option value="SEMANA_SANTA">🌴 Semana Santa</option>
+                    <option value="MADRES_PADRES">💐 Día de las Madres / Padres</option>
+                    <option value="HALLOWEEN">🎃 Halloween / Octubre</option>
+                    <option value="ANIVERSARIO">🎂 Aniversario de la Tienda</option>
+                  </select>
+                </div>
+
                 <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-4">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <h3 className="text-xs font-extrabold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
@@ -6877,6 +7580,7 @@
           const [supName, setSupName] = useState('');
           const [supRif, setSupRif] = useState('');
           const [supPhone, setSupPhone] = useState('');
+          const [supPaymentMethods, setSupPaymentMethods] = useState('');
           const [supCat, setSupCat] = useState('Víveres y Secos');
 
           const [selectedSupId, setSelectedSupId] = useState(suppliers[0]?.id || '');
@@ -6916,6 +7620,7 @@
               name: supName.trim(),
               rif: supRif.trim() || 'S/R',
               phone: supPhone.trim() || 'S/T',
+              paymentMethods: supPaymentMethods.trim() || 'Efectivo / Transferencia',
               category: supCat,
             };
             const updated = [...suppliers, newSup];
@@ -6924,7 +7629,17 @@
             setSupName('');
             setSupRif('');
             setSupPhone('');
-            showToast('Proveedor registrado en directorio');
+            setSupPaymentMethods('');
+            showToast('Proveedor y métodos de pago registrados');
+          };
+
+          const handleDeleteSupplier = (sup) => {
+            setSuppliers(suppliers.filter((s) => s.id !== sup.id));
+            if (selectedSupId === sup.id) {
+              const remaining = suppliers.filter((s) => s.id !== sup.id);
+              setSelectedSupId(remaining[0]?.id || '');
+            }
+            showToast(`🗑️ Proveedor "${sup.name}" eliminado`, 'info');
           };
 
           const handleCreatePayable = (e) => {
@@ -6944,6 +7659,7 @@
               dueDate,
               totalUsd: amt,
               paidUsd: 0,
+              installments: [],
               notes: notes.trim(),
               status: 'PENDING',
             };
@@ -6957,11 +7673,24 @@
 
           const handlePayInstallment = (payable, customAmount = null) => {
             const balance = Math.max(0, round3(payable.totalUsd - payable.paidUsd));
-            const payNow = customAmount !== null ? Math.min(balance, Number(customAmount)) : balance;
+            const parsedCustom = customAmount !== null ? Number(String(customAmount).replace(',', '.')) : null;
+            if (customAmount !== null && (!parsedCustom || parsedCustom <= 0)) {
+              showToast('Escribe un monto de abono válido mayor a 0', 'warning');
+              return;
+            }
+            const payNow = parsedCustom !== null ? Math.min(balance, round3(parsedCustom)) : balance;
             if (!payNow || payNow <= 0) return;
 
             const nextPaid = round3(payable.paidUsd + payNow);
             const isFull = nextPaid >= payable.totalUsd;
+            const remainingAfter = Math.max(0, round3(payable.totalUsd - (isFull ? payable.totalUsd : nextPaid)));
+
+            const newInstallment = {
+              date: new Date().toISOString(),
+              amountUsd: payNow,
+              remainingUsd: remainingAfter,
+              type: isFull ? 'Liquidación Total' : 'Abono Parcial',
+            };
 
             setPayables(
               payables.map((p) =>
@@ -6971,6 +7700,7 @@
                       paidUsd: isFull ? p.totalUsd : nextPaid,
                       status: isFull ? 'PAID' : 'PARTIAL',
                       paidAt: isFull ? new Date().toISOString() : p.paidAt || null,
+                      installments: [...(p.installments || []), newInstallment],
                     }
                   : p
               )
@@ -6991,17 +7721,19 @@
 
             setAbonoAmounts((prev) => ({ ...prev, [payable.id]: '' }));
             if (isFull) {
-              showToast(`✅ Factura ${payable.invoiceNumber} liquidada y movida a Finalizadas`);
+              showToast(`✅ Factura ${payable.invoiceNumber} liquidada y pasada a Finalizadas`);
             } else {
-              showToast(`Abono de ${formatUsd(payNow)} registrado y descontado de Caja`);
+              showToast(`Abono de ${formatUsd(payNow)} restado. Resta: ${formatUsd(remainingAfter)}`);
             }
           };
 
-          const getSemaphore = (dueStr, bal) => {
-            if (bal <= 0) return { text: '✅ FINALIZADA / PAGADA', cls: 'bg-emerald-100 text-emerald-800' };
+          const getSemaphore = (dueStr, bal, paidUsd = 0) => {
+            if (bal <= 0) return { text: '✅ LISTO / PAGADA', cls: 'bg-emerald-600 text-white' };
             const diffDays = Math.ceil((new Date(dueStr) - new Date()) / (1000 * 60 * 60 * 24));
-            if (diffDays < 0) return { text: `🔴 VENCIDA (${Math.abs(diffDays)}d)`, cls: 'bg-red-100 text-red-700' };
-            if (diffDays <= 3) return { text: `🟡 VENCE EN ${diffDays}d`, cls: 'bg-amber-100 text-amber-800' };
+            const partialTag = paidUsd > 0 ? ` • ABONADO (FALTA ${formatUsd(bal)})` : '';
+            if (diffDays < 0) return { text: `🔴 VENCIDA (${Math.abs(diffDays)}d)${partialTag}`, cls: 'bg-red-100 text-red-700' };
+            if (diffDays <= 3) return { text: `🟡 VENCE EN ${diffDays}d${partialTag}`, cls: 'bg-amber-100 text-amber-800' };
+            if (paidUsd > 0) return { text: `🟠 ABONADO • FALTA ${formatUsd(bal)}`, cls: 'bg-amber-100 text-amber-800' };
             return { text: `🟢 AL DÍA (${diffDays}d)`, cls: 'bg-emerald-50 text-emerald-700' };
           };
 
@@ -7021,6 +7753,32 @@
                 <div className="bg-slate-900 text-white p-5 rounded-3xl">
                   <span className="text-xs font-bold text-slate-400">FACTURAS FINALIZADAS</span>
                   <p className="text-2xl font-black text-emerald-400 mt-1">{finalizedInvoices.length}</p>
+                </div>
+              </div>
+
+              {/* Directorio de Proveedores con Métodos de Pago y Opción de Eliminar */}
+              <div className="bg-white p-5 rounded-3xl border border-slate-200 space-y-3">
+                <h3 className="font-extrabold text-slate-900 text-sm">Directorio de Proveedores y Métodos de Pago</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {suppliers.map((s) => (
+                    <div key={s.id} className="p-3.5 rounded-2xl border border-slate-200 bg-slate-50 flex items-start justify-between gap-2 text-xs">
+                      <div className="space-y-1">
+                        <p className="font-extrabold text-slate-900 text-sm">{s.name}</p>
+                        <p className="text-slate-500">RIF: {s.rif} • Tel: {s.phone}</p>
+                        <p className="text-emerald-800 font-bold bg-emerald-50 px-2 py-1 rounded-lg border border-emerald-200">
+                          💳 {s.paymentMethods || 'Sin método registrado'}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteSupplier(s)}
+                        className="p-2 bg-red-50 hover:bg-red-100 text-red-600 rounded-xl cursor-pointer shrink-0"
+                        title="Eliminar proveedor"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
                 </div>
               </div>
 
@@ -7052,12 +7810,20 @@
                   </form>
 
                   <form onSubmit={handleCreateSupplier} className="bg-white p-5 rounded-3xl border border-slate-200 space-y-3">
-                    <h3 className="font-extrabold text-slate-900 text-sm">Nuevo Proveedor</h3>
+                    <h3 className="font-extrabold text-slate-900 text-sm">Nuevo Proveedor y Métodos de Pago</h3>
                     <input type="text" placeholder="Nombre o Razón Social *" value={supName} onChange={(e) => setSupName(e.target.value)} className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs" required />
                     <div className="grid grid-cols-2 gap-2">
                       <input type="text" placeholder="RIF (J-...)" value={supRif} onChange={(e) => setSupRif(e.target.value)} className="px-3 py-2 border border-slate-300 rounded-xl text-xs" />
                       <input type="text" placeholder="Teléfono" value={supPhone} onChange={(e) => setSupPhone(e.target.value)} className="px-3 py-2 border border-slate-300 rounded-xl text-xs" />
                     </div>
+                    <input
+                      type="text"
+                      placeholder="Métodos de Pago (Ej: Pago Móvil 0414..., Zelle, Cuenta Banco...)"
+                      value={supPaymentMethods}
+                      onChange={(e) => setSupPaymentMethods(e.target.value)}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs"
+                      required
+                    />
                     <button type="submit" className="w-full py-2.5 bg-emerald-600 text-white rounded-xl text-xs font-extrabold cursor-pointer">
                       + Agregar Proveedor
                     </button>
@@ -7103,61 +7869,84 @@
                     ) : (
                       displayedInvoices.map((p) => {
                         const balance = Math.max(0, round3(p.totalUsd - p.paidUsd));
-                        const sem = getSemaphore(p.dueDate, balance);
+                        const sem = getSemaphore(p.dueDate, balance, p.paidUsd);
+                        const supInfo = suppliers.find((s) => s.id === p.supplierId);
                         return (
                           <div
                             key={p.id}
-                            className={`p-4 rounded-2xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
+                            className={`p-4 rounded-2xl border space-y-2.5 ${
                               invoiceTab === 'FINALIZED'
                                 ? 'border-emerald-200 bg-emerald-50/40'
                                 : 'border-slate-200 bg-slate-50/70'
                             }`}
                           >
-                            <div>
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <span className="font-extrabold text-slate-900 text-sm">{p.supplierName}</span>
-                                <span className="text-xs font-bold text-slate-500">({p.invoiceNumber})</span>
-                                <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold ${sem.cls}`}>{sem.text}</span>
-                              </div>
-                              <p className="text-xs text-slate-500 mt-1">
-                                {invoiceTab === 'FINALIZED'
-                                  ? `Liquidada el ${p.paidAt ? new Date(p.paidAt).toLocaleDateString('es-VE') : p.dueDate}`
-                                  : `Vence: ${p.dueDate}`}{' '}
-                                • {p.notes || 'Sin notas'}
-                              </p>
-                              <div className="flex gap-4 text-xs mt-1">
-                                <span>Total: <strong>{formatUsd(p.totalUsd)}</strong></span>
-                                <span className="text-emerald-700">Pagado: <strong>{formatUsd(p.paidUsd)}</strong></span>
-                                {balance > 0 && (
-                                  <span className="text-red-600">Restante: <strong>{formatUsd(balance)}</strong></span>
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                              <div>
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span className="font-extrabold text-slate-900 text-sm">{p.supplierName}</span>
+                                  <span className="text-xs font-bold text-slate-500">({p.invoiceNumber})</span>
+                                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold ${sem.cls}`}>{sem.text}</span>
+                                </div>
+                                {supInfo?.paymentMethods && (
+                                  <p className="text-[11px] font-bold text-emerald-700 mt-0.5">
+                                    💳 Pago: {supInfo.paymentMethods}
+                                  </p>
                                 )}
+                                <p className="text-xs text-slate-500 mt-0.5">
+                                  {invoiceTab === 'FINALIZED'
+                                    ? `Liquidada el ${p.paidAt ? new Date(p.paidAt).toLocaleDateString('es-VE') : p.dueDate}`
+                                    : `Emisión: ${p.issueDate} • Vence: ${p.dueDate}`}{' '}
+                                  • {p.notes || 'Sin notas'}
+                                </p>
+                                <div className="flex flex-wrap gap-4 text-xs mt-1">
+                                  <span>Total Factura: <strong>{formatUsd(p.totalUsd)}</strong></span>
+                                  <span className="text-emerald-700">Abonado: <strong>{formatUsd(p.paidUsd)}</strong></span>
+                                  <span className="text-red-600">Total Restante: <strong>{formatUsd(balance)}</strong></span>
+                                </div>
                               </div>
+
+                              {balance > 0 && (
+                                <div className="flex items-center gap-2">
+                                  <input
+                                    type="number"
+                                    step="0.01"
+                                    placeholder="Abono $"
+                                    value={abonoAmounts[p.id] || ''}
+                                    onChange={(e) => setAbonoAmounts({ ...abonoAmounts, [p.id]: e.target.value })}
+                                    className="w-24 px-2.5 py-2 border border-slate-300 rounded-xl text-xs font-bold bg-white"
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() => handlePayInstallment(p, abonoAmounts[p.id])}
+                                    className="px-3 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-xs font-extrabold cursor-pointer"
+                                  >
+                                    Abonar
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handlePayInstallment(p, null)}
+                                    className="px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-extrabold cursor-pointer"
+                                  >
+                                    Liquidar
+                                  </button>
+                                </div>
+                              )}
                             </div>
 
-                            {balance > 0 && (
-                              <div className="flex items-center gap-2">
-                                <input
-                                  type="number"
-                                  step="0.01"
-                                  placeholder="Abono $"
-                                  value={abonoAmounts[p.id] || ''}
-                                  onChange={(e) => setAbonoAmounts({ ...abonoAmounts, [p.id]: e.target.value })}
-                                  className="w-24 px-2.5 py-2 border border-slate-300 rounded-xl text-xs font-bold bg-white"
-                                />
-                                <button
-                                  type="button"
-                                  onClick={() => handlePayInstallment(p, abonoAmounts[p.id])}
-                                  className="px-3 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-xs font-extrabold cursor-pointer"
-                                >
-                                  Abonar
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => handlePayInstallment(p, null)}
-                                  className="px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-extrabold cursor-pointer"
-                                >
-                                  Liquidar
-                                </button>
+                            {/* Historial detallado de abonos por fecha */}
+                            {p.installments && p.installments.length > 0 && (
+                              <div className="pt-2 border-t border-slate-200/80 space-y-1 text-[11px]">
+                                <span className="font-extrabold text-slate-600 block">Historial de Abonos Realizados:</span>
+                                {p.installments.map((inst, idx) => (
+                                  <div key={idx} className="flex items-center justify-between bg-white px-2.5 py-1 rounded-lg border border-slate-200/60">
+                                    <span>
+                                      📅 {new Date(inst.date).toLocaleString('es-VE')} — <strong>{inst.type}</strong>
+                                    </span>
+                                    <span>
+                                      Abono: <strong className="text-emerald-700">{formatUsd(inst.amountUsd)}</strong> | Restante: <strong className="text-red-600">{formatUsd(inst.remainingUsd)}</strong>
+                                    </span>
+                                  </div>
+                                ))}
                               </div>
                             )}
                           </div>
@@ -7201,6 +7990,8 @@
               payFrequency,
               baseSalaryUsd: Number(baseSalaryUsd),
               advancesUsd: 0,
+              paidCurrentPeriodUsd: 0,
+              payrollStatus: 'PENDING',
               advanceNotes: '',
               active: true,
             };
@@ -7213,35 +8004,90 @@
           };
 
           const handleAddAdvance = (emp) => {
-            const amt = Number(advanceInputs[emp.id]);
-            if (!amt || amt <= 0) return;
+            const rawVal = String(advanceInputs[emp.id] || '').replace(',', '.');
+            const amt = Number(rawVal);
+            if (!amt || amt <= 0) {
+              showToast('Ingresa un monto de abono o adelanto válido mayor a 0', 'warning');
+              return;
+            }
+            const currentAdvances = Number(emp.advancesUsd || 0);
+            const currentPaid = Number(emp.paidCurrentPeriodUsd || 0);
+            const remainingBefore = Math.max(0, round3(emp.baseSalaryUsd - currentAdvances - currentPaid));
+            if (remainingBefore <= 0) {
+              showToast(`${emp.fullName} ya tiene su período listo / pagado completo`, 'info');
+              return;
+            }
+            const appliedAmt = Math.min(remainingBefore, round3(amt));
+            const nextAdvances = round3(currentAdvances + appliedAmt);
+            const nextRemaining = Math.max(0, round3(emp.baseSalaryUsd - nextAdvances - currentPaid));
+            const isReady = nextRemaining <= 0;
+
             setEmployees(
               employees.map((e) =>
-                e.id === emp.id ? { ...e, advancesUsd: round3((e.advancesUsd || 0) + amt) } : e
+                e.id === emp.id
+                  ? {
+                      ...e,
+                      advancesUsd: nextAdvances,
+                      payrollStatus: isReady ? 'PAID' : 'PARTIAL',
+                      lastPaidAt: isReady ? new Date().toISOString() : e.lastPaidAt || null,
+                    }
+                  : e
               )
             );
             setAdvanceInputs({ ...advanceInputs, [emp.id]: '' });
-            showToast(`Adelanto / consumo de ${formatUsd(amt)} cargado a ${emp.fullName}`);
+            if (isReady) {
+              showToast(`✅ Con este abono de ${formatUsd(appliedAmt)}, la nómina de ${emp.fullName} quedó LISTA (Pagada)`);
+            } else {
+              showToast(`Abono / adelanto de ${formatUsd(appliedAmt)} cargado a ${emp.fullName}. Faltante: ${formatUsd(nextRemaining)}`);
+            }
           };
 
           const handleProcessPayroll = (emp) => {
-            const netPay = Math.max(0, round3(emp.baseSalaryUsd - (emp.advancesUsd || 0)));
-            setCashMovements([
-              {
-                id: `MOV-${Date.now()}`,
-                date: new Date().toISOString(),
-                type: 'OUT',
-                category: 'Pago de Nómina',
-                description: `Nómina ${emp.fullName} (${emp.position}) - Base: ${formatUsd(emp.baseSalaryUsd)} | Desc. Adelantos: ${formatUsd(emp.advancesUsd || 0)}`,
-                amountUsd: netPay,
-                currencyUsed: 'USD',
-              },
-              ...cashMovements,
-            ]);
+            const currentAdvances = Number(emp.advancesUsd || 0);
+            const currentPaid = Number(emp.paidCurrentPeriodUsd || 0);
+            const netPay = Math.max(0, round3(emp.baseSalaryUsd - currentAdvances - currentPaid));
+
+            if (netPay > 0) {
+              setCashMovements([
+                {
+                  id: `MOV-${Date.now()}`,
+                  date: new Date().toISOString(),
+                  type: 'OUT',
+                  category: 'Pago de Nómina',
+                  description: `Liquidación Nómina ${emp.fullName} (${emp.position}) - Base: ${formatUsd(emp.baseSalaryUsd)} | Desc. Adelantos/Abonos: ${formatUsd(currentAdvances)}`,
+                  amountUsd: netPay,
+                  currencyUsed: 'USD',
+                },
+                ...cashMovements,
+              ]);
+            }
+
             setEmployees(
-              employees.map((e) => (e.id === emp.id ? { ...e, advancesUsd: 0, advanceNotes: '' } : e))
+              employees.map((e) =>
+                e.id === emp.id
+                  ? {
+                      ...e,
+                      paidCurrentPeriodUsd: round3(currentPaid + netPay),
+                      payrollStatus: 'PAID',
+                      lastPaidAt: new Date().toISOString(),
+                    }
+                  : e
+              )
             );
-            showToast(`Nómina pagada a ${emp.fullName}: ${formatUsd(netPay)} neto descontado de Caja`);
+            showToast(`✅ Nómina de ${emp.fullName} marcada como LISTA / PAGADA (${formatUsd(netPay)} liquidado)`);
+          };
+
+          const handleResetNewPayrollPeriod = () => {
+            setEmployees(
+              employees.map((e) => ({
+                ...e,
+                advancesUsd: 0,
+                paidCurrentPeriodUsd: 0,
+                payrollStatus: 'PENDING',
+                advanceNotes: '',
+              }))
+            );
+            showToast('🔄 Nuevo período de nómina iniciado: todos los trabajadores están listos para el nuevo ciclo');
           };
 
           return (
@@ -7271,12 +8117,35 @@
               </form>
 
               <div className="lg:col-span-8 bg-white p-5 rounded-3xl border border-slate-200 space-y-3">
-                <h3 className="font-extrabold text-slate-900">Nómina Activa, Adelantos y Liquidación</h3>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <h3 className="font-extrabold text-slate-900">Nómina Activa, Adelantos y Liquidación</h3>
+                  <button
+                    type="button"
+                    onClick={handleResetNewPayrollPeriod}
+                    className="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold cursor-pointer"
+                  >
+                    🔄 Iniciar Nuevo Período de Nómina
+                  </button>
+                </div>
                 <div className="space-y-3">
                   {employees.map((emp) => {
-                    const netPay = Math.max(0, round3(emp.baseSalaryUsd - (emp.advancesUsd || 0)));
+                    const advances = Number(emp.advancesUsd || 0);
+                    const paid = Number(emp.paidCurrentPeriodUsd || 0);
+                    const remainingToPay = Math.max(0, round3(emp.baseSalaryUsd - advances - paid));
+                    const isPaidComplete = emp.payrollStatus === 'PAID' || remainingToPay <= 0;
+                    const hasPartialAbono = !isPaidComplete && (advances > 0 || paid > 0);
+
                     return (
-                      <div key={emp.id} className="p-4 rounded-2xl border border-slate-200 bg-slate-50/70 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div
+                        key={emp.id}
+                        className={`p-4 rounded-2xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
+                          isPaidComplete
+                            ? 'border-emerald-300 bg-emerald-50/50'
+                            : hasPartialAbono
+                            ? 'border-amber-300 bg-amber-50/40'
+                            : 'border-slate-200 bg-slate-50/70'
+                        }`}
+                      >
                         <div>
                           <div className="flex items-center gap-2 flex-wrap">
                             <span className="font-extrabold text-slate-900 text-sm">{emp.fullName}</span>
@@ -7284,37 +8153,77 @@
                             <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold ${emp.hasSystemAccess ? 'bg-sky-100 text-sky-800' : 'bg-slate-200 text-slate-700'}`}>
                               {emp.hasSystemAccess ? 'Con Acceso POS' : 'Operativo sin Acceso'}
                             </span>
+                            {isPaidComplete ? (
+                              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-600 text-white">
+                                ✓ LISTO / PAGADO
+                              </span>
+                            ) : hasPartialAbono ? (
+                              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-500 text-white">
+                                ⏳ ABONADO (FALTA {formatUsd(remainingToPay)})
+                              </span>
+                            ) : (
+                              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-slate-200 text-slate-700">
+                                PENDIENTE
+                              </span>
+                            )}
                           </div>
-                          <div className="flex gap-4 text-xs mt-1.5">
+                          <div className="flex flex-wrap gap-4 text-xs mt-1.5">
                             <span>Sueldo Base: <strong>{formatUsd(emp.baseSalaryUsd)}</strong></span>
-                            <span className="text-amber-700">Adelantos / Fiado: <strong>-{formatUsd(emp.advancesUsd || 0)}</strong></span>
-                            <span className="text-emerald-700">Neto a Pagar: <strong>{formatUsd(netPay)}</strong></span>
+                            <span className="text-amber-700">Abonos / Adelantos: <strong>-{formatUsd(advances)}</strong></span>
+                            {paid > 0 && (
+                              <span className="text-emerald-700">Liquidado: <strong>{formatUsd(paid)}</strong></span>
+                            )}
+                            <span className={isPaidComplete ? 'text-emerald-700 font-bold' : 'text-red-600 font-bold'}>
+                              Faltante por Pagar: <strong>{formatUsd(remainingToPay)}</strong>
+                            </span>
                           </div>
                         </div>
 
-                        <div className="flex items-center gap-2">
-                          <input
-                            type="number"
-                            step="0.01"
-                            placeholder="Adelanto $"
-                            value={advanceInputs[emp.id] || ''}
-                            onChange={(e) => setAdvanceInputs({ ...advanceInputs, [emp.id]: e.target.value })}
-                            className="w-24 px-2.5 py-2 border border-slate-300 rounded-xl text-xs font-bold bg-white"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => handleAddAdvance(emp)}
-                            className="px-3 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-xs font-extrabold cursor-pointer"
-                          >
-                            + Adelanto
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleProcessPayroll(emp)}
-                            className="px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-extrabold cursor-pointer"
-                          >
-                            Pagar {formatUsd(netPay)}
-                          </button>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          {!isPaidComplete ? (
+                            <>
+                              <input
+                                type="number"
+                                step="0.01"
+                                min="0.01"
+                                placeholder="Abono $"
+                                value={advanceInputs[emp.id] || ''}
+                                onChange={(e) => setAdvanceInputs({ ...advanceInputs, [emp.id]: e.target.value })}
+                                className="w-24 px-2.5 py-2 border border-slate-300 rounded-xl text-xs font-bold bg-white"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => handleAddAdvance(emp)}
+                                className="px-3 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-xs font-extrabold cursor-pointer"
+                              >
+                                + Abono / Adelanto
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleProcessPayroll(emp)}
+                                className="px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-extrabold cursor-pointer"
+                              >
+                                Pagar Todo ({formatUsd(remainingToPay)})
+                              </button>
+                            </>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEmployees(
+                                  employees.map((e) =>
+                                    e.id === emp.id
+                                      ? { ...e, advancesUsd: 0, paidCurrentPeriodUsd: 0, payrollStatus: 'PENDING' }
+                                      : e
+                                  )
+                                );
+                                showToast(`Ciclo reiniciado para ${emp.fullName}`);
+                              }}
+                              className="px-3 py-2 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 rounded-xl text-xs font-bold cursor-pointer"
+                            >
+                              Nuevo Ciclo
+                            </button>
+                          )}
                           <button
                             type="button"
                             onClick={() => {
